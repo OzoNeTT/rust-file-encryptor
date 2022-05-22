@@ -1,8 +1,8 @@
 // use core::slice::SlicePattern;
+
 use std::{io, iter};
 use std::fs::File;
 use std::io::{ErrorKind, Read, Write};
-use anyhow::anyhow;
 use chacha20poly1305::{
     aead::{stream, Aead, NewAead},
     XChaCha20Poly1305,
@@ -12,8 +12,7 @@ use chacha20poly1305::{
 };
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-
-
+use crate::meta;
 
 pub fn decrypt_file(
     source_file: &mut File,
@@ -87,6 +86,8 @@ pub fn encrypt_file(
             // write anything
         }
     }
+
+    // TODO: put meta::EncryptedMeta
 
     Ok(())
 }

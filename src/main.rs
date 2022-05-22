@@ -1,10 +1,11 @@
 mod file;
 mod encryption;
+mod meta;
 
 use std::error::Error;
 use std::fs::{File, OpenOptions};
-use std::{io, iter};
-use std::io::{ErrorKind, Read, Write};
+use std::{io, iter, thread, time};
+use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use rand::{thread_rng, Rng};
@@ -23,8 +24,8 @@ fn main() -> io::Result<()> {
     pretty_env_logger::init();
 
     let file_path = Path::new("./bin/sample.txt");
-    let target_file_path = Path::new("./bin/sample.txt.enc");
-    let decrypt_file_path = Path::new("./bin/sample.txt.dec");
+    let target_file_path = Path::new("./bin/sample.txt");
+    let decrypt_file_path = Path::new("./bin/sample.txt");
 
     let key = [0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8];
 
@@ -37,9 +38,13 @@ fn main() -> io::Result<()> {
 
     let nonce = rand_string.as_slice();
 
+    let MAGIC_STRING = b"I am an impostor\n";
+
     {
         let mut source_file = File::open(file_path)?;
         let mut target_file = File::open_or_create(target_file_path)?;
+
+        target_file.write(MAGIC_STRING);
 
         encrypt_file(
             &mut source_file,
@@ -48,9 +53,16 @@ fn main() -> io::Result<()> {
             nonce,
         )?;
     }
+
+    println!("Go check");
+    thread::sleep(time::Duration::from_secs(4));
+
     {
         let mut target_file = File::open(target_file_path)?;
         let mut target_dec_file = File::open_or_create(decrypt_file_path)?;
+
+        target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
+
         decrypt_file(
             &mut target_file,
             &mut target_dec_file,
