@@ -31,6 +31,8 @@ pub fn decrypt_file(
     const BUFFER_LEN: usize = 500;
     let mut buffer = [0u8; BUFFER_LEN];
 
+    ///let meta = source_file.metadata().unwrap_or(0).len();
+
     loop {
         let read_count = source_file.read(&mut buffer)?;
 
@@ -67,6 +69,7 @@ pub fn encrypt_file(
     const BUFFER_LEN: usize = 500;
     let mut buffer = [0u8; BUFFER_LEN];
 
+
     loop {
         let read_count = source_file.read(&mut buffer)?;
 
@@ -81,6 +84,7 @@ pub fn encrypt_file(
                 .map_err(|err| io::Error::new(ErrorKind::InvalidData, format!("Encrypting large file: {0}", err)))?;
             dist_file.write(&ciphertext)?;
             break;
+            // write anything
         }
     }
 
