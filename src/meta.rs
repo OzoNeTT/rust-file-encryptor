@@ -14,8 +14,8 @@ const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
 
 #[derive(Debug)]
 pub struct EncryptedMeta {
-    magic: [u8; 4],
-    nonce: [u8; 19],
+    magic: [u8; MAGIC_SIZE],
+    nonce: [u8; NONCE_SIZE],
     filename: String,
 
 }
@@ -27,17 +27,20 @@ impl PartialEq<Self> for EncryptedMeta {
 }
 
 impl EncryptedMeta {
-    pub const MAGIC: [u8; 4] = [0x52, 0x46, 0x45, 0x44];
+    pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
 
-    pub fn new(nonce: &[u8; 19], filename: &str) -> EncryptedMeta {
-        return EncryptedMeta {
+    pub fn new(
+        nonce: &[u8; NONCE_SIZE],
+        filename: &str,
+    ) -> Self {
+        return Self {
             magic: EncryptedMeta::MAGIC,
             filename: filename.into(),
             nonce: *nonce,
         };
     }
 
-    pub fn to_vec(self) -> Vec<u8> {
+    pub fn to_vec(&self) -> Vec<u8> {
         vec![0u8].into_iter()
             .chain(self.filename.bytes())
             .chain(self.nonce)
@@ -45,11 +48,12 @@ impl EncryptedMeta {
             .collect::<Vec<u8>>()
     }
 
-    pub fn from_vec(vec: &Vec<u8>) -> io::Result<EncryptedMeta> {
-        if vec.len() <= 19 + 4 {
+
+    pub fn from_vec(vec: &Vec<u8>) -> io::Result<Self> {
+        if vec.len() <= META_MIN_SIZE {
             return Err(io::Error::new(ErrorKind::InvalidData, "Invalid length"));
         }
-        if vec[vec.len() - 4..] != EncryptedMeta::MAGIC {
+        if vec[vec.len() - MAGIC_SIZE..] != Self::MAGIC {
             return Err(io::Error::new(ErrorKind::InvalidData, "Invalid magic"));
         }
 
@@ -94,8 +98,8 @@ mod tests {
         let meta = EncryptedMeta::new(&NONCE, "file.txt");
 
         assert_eq!(
+            meta.to_vec().as_slice(),
             b"\x00file.txt\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED",
-            meta.to_vec().as_slice()
         );
     }
 
@@ -105,8 +109,8 @@ mod tests {
         let result = EncryptedMeta::from_vec(&a)?;
 
         assert_eq!(
+            result,
             EncryptedMeta::new(&NONCE, "file.txt"),
-            result
         );
 
         Ok(())
