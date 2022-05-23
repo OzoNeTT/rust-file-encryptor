@@ -3,6 +3,13 @@ use std::convert::{TryFrom, TryInto};
 use std::{cmp, io};
 use std::io::ErrorKind;
 use arrayref::array_ref;
+use std::str;
+use std::str::{from_utf8, Utf8Error};
+
+pub const MAGIC_SIZE: usize = 4usize;
+pub const NONCE_SIZE: usize = 19usize;
+
+const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
 
 
 #[derive(Debug)]
@@ -18,8 +25,6 @@ impl PartialEq<Self> for EncryptedMeta {
         self.magic == other.magic && self.nonce == other.nonce && self.filename == other.filename
     }
 }
-
-
 
 impl EncryptedMeta {
     pub const MAGIC: [u8; 4] = [0x52, 0x46, 0x45, 0x44];
@@ -48,12 +53,32 @@ impl EncryptedMeta {
             return Err(io::Error::new(ErrorKind::InvalidData, "Invalid magic"));
         }
 
-        let nonce = array_ref![vec[vec.len() - 19 - 4..vec.len() - 4], 0, 19];
+        let nonce = array_ref![vec[vec.len() - (MAGIC_SIZE + NONCE_SIZE)..vec.len() - 4], 0, 19];
 
-        // TODO
-        // FIXME : parse filename
-        // TODO
-        return Ok(EncryptedMeta::new(&nonce, "amongus"));
+        let str_end = vec.into_iter().rev().skip(MAGIC_SIZE + NONCE_SIZE);
+        let str_result = str_end
+            .clone()
+            .map_while(|c| match *c != b'\x00' {
+                true => Some(*c),
+                false => None
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+        ;
+
+        let filename = match from_utf8(str_result.as_slice()){
+            Ok(str) => &str,
+            Err(_) => ""
+        };
+        println!("Filename {:?}", from_utf8(str_result.as_slice()));
+
+        return Ok(EncryptedMeta::new(&nonce, filename));
+    }
+
+    pub fn load_file(){
+        return;
     }
 }
 

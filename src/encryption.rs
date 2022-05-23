@@ -1,7 +1,7 @@
 // use core::slice::SlicePattern;
 
 use std::{io, iter};
-use std::fs::File;
+use std::fs::{File, metadata};
 use std::io::{ErrorKind, Read, Write};
 use chacha20poly1305::{
     aead::{stream, Aead, NewAead},
@@ -27,14 +27,17 @@ pub fn decrypt_file(
         nonce.into()
     );
 
-    const BUFFER_LEN: usize = 500;
-    let mut buffer = [0u8; BUFFER_LEN];
 
-    ///let meta = source_file.metadata().unwrap_or(0).len();
+    const BUFFER_LEN: usize = 512;
+
+
+    let mut glob_len = 0;
 
     loop {
+        let mut buffer = [0u8; BUFFER_LEN];
         let read_count = source_file.read(&mut buffer)?;
-
+        glob_len += read_count;
+        println!("Decrypting {:?}/{:?}", glob_len, source_file.metadata().unwrap().len());
         if read_count == BUFFER_LEN {
             let ciphertext = stream_decryptor
                 .decrypt_next(buffer.as_slice())
@@ -65,13 +68,15 @@ pub fn encrypt_file(
         nonce.into()
     );
 
-    const BUFFER_LEN: usize = 500;
-    let mut buffer = [0u8; BUFFER_LEN];
+    const BUFFER_LEN: usize = 512;
 
+    let mut glob_len = 0;
 
     loop {
+        let mut buffer = [0u8; BUFFER_LEN];
         let read_count = source_file.read(&mut buffer)?;
-
+        glob_len += read_count;
+        println!("Encrypting {:?}/{:?}", glob_len, source_file.metadata().unwrap().len());
         if read_count == BUFFER_LEN {
             let ciphertext = stream_encryptor
                 .encrypt_next(buffer.as_slice())

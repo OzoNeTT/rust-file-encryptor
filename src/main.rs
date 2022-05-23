@@ -19,15 +19,18 @@ use crate::file::OpenOrCreate;
 extern crate log;
 extern crate core;
 
-
 fn main() -> io::Result<()> {
+    let path = std::env::args().nth(1).expect("No path specified");
+
+    let file_path = Path::new(&path);
+
+
     pretty_env_logger::init();
 
-    let file_path = Path::new("./bin/sample.txt");
-    let target_file_path = Path::new("./bin/sample.txt");
-    let decrypt_file_path = Path::new("./bin/sample.txt");
+    let target_file_path = Path::new("./bin/sample.txt.enc");
+    let decrypt_file_path = Path::new("./bin/sample.txt.dec");
 
-    let key = [0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8];
+    let key = [0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8,0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8];
 
     let mut rng = thread_rng();
     let rand_string = iter::repeat(())
@@ -38,13 +41,9 @@ fn main() -> io::Result<()> {
 
     let nonce = rand_string.as_slice();
 
-    let MAGIC_STRING = b"I am an impostor\n";
-
     {
         let mut source_file = File::open(file_path)?;
         let mut target_file = File::open_or_create(target_file_path)?;
-
-        target_file.write(MAGIC_STRING);
 
         encrypt_file(
             &mut source_file,
@@ -61,7 +60,7 @@ fn main() -> io::Result<()> {
         let mut target_file = File::open(target_file_path)?;
         let mut target_dec_file = File::open_or_create(decrypt_file_path)?;
 
-        target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
+        //target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
 
         decrypt_file(
             &mut target_file,
