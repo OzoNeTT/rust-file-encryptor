@@ -14,10 +14,9 @@ const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
 
 #[derive(Debug)]
 pub struct EncryptedMeta {
-    magic: [u8; MAGIC_SIZE],
-    nonce: [u8; NONCE_SIZE],
-    filename: String,
-
+    pub magic: [u8; MAGIC_SIZE],
+    pub nonce: [u8; NONCE_SIZE],
+    pub filename: String,
 }
 
 impl PartialEq<Self> for EncryptedMeta {

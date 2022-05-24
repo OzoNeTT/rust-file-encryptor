@@ -45,8 +45,8 @@ pub fn append_meta(
 
 
 pub fn decrypt_file(
-    source_file: &mut File,
-    dist_file: &mut File,
+    source_file_path: &Path,
+    dist_file_path: &Path,
     key: &[u8; 32],
     nonce: &[u8],
 ) -> io::Result<()> {
@@ -57,7 +57,7 @@ pub fn decrypt_file(
 
     let mut stream_decryptor = stream::DecryptorBE32::from_aead(
         aead,
-        nonce.into()
+        nonce.into(),
     );
 
 
@@ -87,8 +87,8 @@ pub fn decrypt_file(
 }
 
 pub fn encrypt_file(
-    source_file: &mut File,
-    dist_file: &mut File,
+    source_file_path: &Path,
+    dist_file_path: &Path,
     key: &[u8; 32],
     nonce: &[u8],
 ) -> io::Result<()> {
@@ -100,7 +100,7 @@ pub fn encrypt_file(
 
     let mut stream_encryptor = stream::EncryptorBE32::from_aead(
         aead,
-        nonce.into()
+        nonce.into(),
     );
 
     const BUFFER_LEN: usize = 500;
@@ -116,6 +116,8 @@ pub fn encrypt_file(
             let ciphertext = stream_encryptor
                 .encrypt_next(buffer.as_slice())
                 .map_err(|err| io::Error::new(ErrorKind::InvalidData, format!("Encrypting large file: {0}", err)))?;
+
+            println!("Ciphertext length: {}", ciphertext.len());
             dist_file.write(&ciphertext)?;
         } else {
             let ciphertext = stream_encryptor
