@@ -3,6 +3,7 @@
 use std::{io, iter};
 use std::fs::{File, metadata};
 use std::io::{ErrorKind, Read, Write};
+use std::path::Path;
 use chacha20poly1305::{
     aead::{stream, Aead, NewAead},
     XChaCha20Poly1305,
@@ -12,7 +13,36 @@ use chacha20poly1305::{
 };
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use crate::meta;
+use crate::meta::EncryptedMeta;
+use crate::OpenOrCreate;
+use std::ffi::OsStr;
+
+pub fn get_and_remove_meta(
+    data: &Vec<u8>,
+    source_file: &mut Path,
+) -> io::Result<()> {
+    let meta_info = EncryptedMeta::from_vec(data);
+
+    //TODO:Remove metadata from file
+    Ok(())
+}
+
+pub fn append_meta(
+    nonce: &[u8; 19],
+    source_file: &mut Path,
+) -> io::Result<()> {
+    let filename =  match source_file.to_str() {
+        Some(str) => Ok(str),
+        None => Err(io::Error::new(ErrorKind::Other, "I don't know u dumb maybe idk"))
+    }?;
+
+    let meta_info = EncryptedMeta::new(
+        nonce,
+        filename
+    );
+    Ok(())
+}
+
 
 pub fn decrypt_file(
     source_file: &mut File,
@@ -20,7 +50,10 @@ pub fn decrypt_file(
     key: &[u8; 32],
     nonce: &[u8],
 ) -> io::Result<()> {
-    let aead = XChaCha20Poly1305::new(Key::from_slice(key));
+    let mut source_file = File::open(source_file_path)?;
+    let mut dist_file = File::open_or_create(dist_file_path)?;
+
+    let aead = XChaCha20Poly1305::new(key.as_ref().into());
 
     let mut stream_decryptor = stream::DecryptorBE32::from_aead(
         aead,
@@ -28,16 +61,14 @@ pub fn decrypt_file(
     );
 
 
-    const BUFFER_LEN: usize = 512;
-
-
+    const BUFFER_LEN: usize = 500 + 16;
     let mut glob_len = 0;
 
     loop {
         let mut buffer = [0u8; BUFFER_LEN];
         let read_count = source_file.read(&mut buffer)?;
         glob_len += read_count;
-        println!("Decrypting {:?}/{:?}", glob_len, source_file.metadata().unwrap().len());
+        println!("Decrypting {:?}/{:?}", glob_len, source_file.metadata()?.len());
         if read_count == BUFFER_LEN {
             let ciphertext = stream_decryptor
                 .decrypt_next(buffer.as_slice())
@@ -61,14 +92,18 @@ pub fn encrypt_file(
     key: &[u8; 32],
     nonce: &[u8],
 ) -> io::Result<()> {
-    let aead = XChaCha20Poly1305::new(Key::from_slice(key));
+    let mut source_file = File::open(source_file_path)?;
+    let mut dist_file = File::open_or_create(dist_file_path)?;
+
+
+    let aead = XChaCha20Poly1305::new(key.as_ref().into());
 
     let mut stream_encryptor = stream::EncryptorBE32::from_aead(
         aead,
         nonce.into()
     );
 
-    const BUFFER_LEN: usize = 512;
+    const BUFFER_LEN: usize = 500;
 
     let mut glob_len = 0;
 
@@ -76,7 +111,7 @@ pub fn encrypt_file(
         let mut buffer = [0u8; BUFFER_LEN];
         let read_count = source_file.read(&mut buffer)?;
         glob_len += read_count;
-        println!("Encrypting {:?}/{:?}", glob_len, source_file.metadata().unwrap().len());
+        println!("Encrypting {:?}/{:?}", glob_len, source_file.metadata()?.len());
         if read_count == BUFFER_LEN {
             let ciphertext = stream_encryptor
                 .encrypt_next(buffer.as_slice())
@@ -88,11 +123,8 @@ pub fn encrypt_file(
                 .map_err(|err| io::Error::new(ErrorKind::InvalidData, format!("Encrypting large file: {0}", err)))?;
             dist_file.write(&ciphertext)?;
             break;
-            // write anything
         }
     }
-
-    // TODO: put meta::EncryptedMeta
 
     Ok(())
 }

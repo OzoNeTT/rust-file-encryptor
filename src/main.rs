@@ -20,7 +20,10 @@ extern crate log;
 extern crate core;
 
 fn main() -> io::Result<()> {
-    let path = std::env::args().nth(1).expect("No path specified");
+    let app_data = AppData::parse();
+    println!("Filepath: {:?}", app_data.filepath);
+
+    let path = std::env::args().nth(1).expect("No path specified!");
 
     let file_path = Path::new(&path);
 
