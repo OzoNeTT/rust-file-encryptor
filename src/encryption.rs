@@ -1,8 +1,9 @@
 // use core::slice::SlicePattern;
 
-use std::{io, iter};
+use std::{fs, io, iter};
+use std::convert::TryInto;
 use std::fs::{File, metadata};
-use std::io::{ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use chacha20poly1305::{
     aead::{stream, Aead, NewAead},
@@ -20,11 +21,15 @@ use std::ffi::OsStr;
 pub fn get_and_remove_meta(
     data: &Vec<u8>,
     source_file: &mut Path,
-) -> io::Result<()> {
-    let meta_info = EncryptedMeta::from_vec(data);
+) -> io::Result<EncryptedMeta> {
+    let meta_info = EncryptedMeta::from_vec(data)?;
 
-    //TODO:Remove metadata from file
-    Ok(())
+    let mut file = File::open(source_file)?;
+    file.set_len(file.metadata()?.len() - meta_info.length).expect(
+        "Bruh bruh bruh"
+    );
+
+    Ok(meta_info)
 }
 
 pub fn append_meta(
@@ -40,6 +45,10 @@ pub fn append_meta(
         nonce,
         filename
     );
+    let mut file = File::open(source_file)?;
+    file.write(
+        meta_info.to_vec().as_slice()
+    ).expect("Aboba message here!");
     Ok(())
 }
 

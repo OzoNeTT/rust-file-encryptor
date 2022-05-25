@@ -5,6 +5,8 @@ mod meta;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::{io, iter, thread, time};
+use std::borrow::Borrow;
+use std::convert::TryInto;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
@@ -16,7 +18,7 @@ use crate::encryption::{decrypt_file, encrypt_file};
 use crate::file::OpenOrCreate;
 
 use clap::{Arg, Parser};
-use sha2::{Sha256};
+use sha2::{Sha256, Digest};
 
 #[macro_use]
 extern crate log;
@@ -33,13 +35,14 @@ struct AppData {
 
 fn get_hash(
     key: &str,
-) -> io::Result<&[u8; 32]> {
+) -> io::Result<[u8; 32]> {
 
     let mut hasher = Sha256::new();
     hasher.update(key.as_bytes());
 
-    let hashed_key = hasher.finalize();
-
+    let hashed_key: [u8; 32] = hasher.finalize().as_slice().try_into().expect(
+        "I don't know wtf?"
+    );
     Ok(hashed_key)
 }
 
@@ -105,4 +108,17 @@ fn main() -> io::Result<()> {
     println!("Hello, pidor!");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use hex_literal::hex;
+
+    #[test]
+    fn get_hash()  {
+        assert_eq!(
+            crate::get_hash("FM7348mwmw73t").unwrap(),
+            hex!("66afe59af310865bc544c9d7a19ded0b1f8e6a1e797c3a1215a33175cae4023c")
+        );
+    }
 }

@@ -17,11 +17,12 @@ pub struct EncryptedMeta {
     pub magic: [u8; MAGIC_SIZE],
     pub nonce: [u8; NONCE_SIZE],
     pub filename: String,
+    pub length: usize,
 }
 
 impl PartialEq<Self> for EncryptedMeta {
     fn eq(&self, other: &Self) -> bool {
-        self.magic == other.magic && self.nonce == other.nonce && self.filename == other.filename
+        self.magic == other.magic && self.nonce == other.nonce && self.filename == other.filename && self.length == other.length
     }
 }
 
@@ -36,6 +37,7 @@ impl EncryptedMeta {
             magic: EncryptedMeta::MAGIC,
             filename: filename.into(),
             nonce: *nonce,
+            length: MAGIC_SIZE + filename.len() + NONCE_SIZE + 2
         };
     }
 
