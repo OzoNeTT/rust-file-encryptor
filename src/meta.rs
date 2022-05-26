@@ -22,7 +22,7 @@ pub struct EncryptedMeta {
 
 impl PartialEq<Self> for EncryptedMeta {
     fn eq(&self, other: &Self) -> bool {
-        self.magic == other.magic && self.nonce == other.nonce && self.filename == other.filename && self.length == other.length
+        self.magic == other.magic && self.nonce == other.nonce && self.filename == other.filename
     }
 }
 
@@ -30,7 +30,7 @@ impl EncryptedMeta {
     pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
 
     pub fn new(
-        nonce: &[u8; NONCE_SIZE],
+        nonce: &[u8; 19],
         filename: &str,
     ) -> Self {
         return Self {
@@ -84,6 +84,10 @@ impl EncryptedMeta {
 
     pub fn load_file(){
         return;
+    }
+
+    pub fn is_valid_encoded(vec: &Vec<u8>) -> bool {
+        vec[vec.len() - MAGIC_SIZE..] == Self::MAGIC
     }
 }
 

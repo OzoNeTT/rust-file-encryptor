@@ -18,23 +18,53 @@ use crate::meta::EncryptedMeta;
 use crate::OpenOrCreate;
 use std::ffi::OsStr;
 
-pub fn get_and_remove_meta(
-    data: &Vec<u8>,
-    source_file: &mut Path,
-) -> io::Result<EncryptedMeta> {
-    let meta_info = EncryptedMeta::from_vec(data)?;
 
-    let mut file = File::open(source_file)?;
-    file.set_len(file.metadata()?.len() - meta_info.length).expect(
-        "Bruh bruh bruh"
-    );
+pub fn try_parse(
+    source_file: &Path,
+) -> io::Result<bool> {
+
+    let mut buff = vec![];
+
+    let mut valid_enc: bool;
+    {
+        let mut file = File::open(source_file)?;
+        file.read_to_end(&mut buff)?;
+        valid_enc = EncryptedMeta::is_valid_encoded(&buff);
+    }
+    Ok(valid_enc)
+}
+
+pub fn get_and_remove_meta(
+    source_file: &Path,
+) -> io::Result<EncryptedMeta> {
+
+    let mut buff = vec![];
+
+    let mut meta_info: EncryptedMeta;
+    let mut meta_size = 0usize;
+
+    {
+        let mut file = File::open(source_file)?;
+        file.read_to_end(&mut buff)?;
+
+        meta_info = EncryptedMeta::from_vec(&buff)?;
+        meta_size = meta_info.len();
+    }
+
+    {
+        let mut file = File::open_write(source_file)?;
+        let new_len = file.metadata()?.len() - meta_size as u64;
+        file.set_len(new_len).expect(
+            "Bruh bruh bruh"
+        );
+    }
 
     Ok(meta_info)
 }
 
 pub fn append_meta(
     nonce: &[u8; 19],
-    source_file: &mut Path,
+    source_file: &Path,
 ) -> io::Result<()> {
     let filename =  match source_file.to_str() {
         Some(str) => Ok(str),
@@ -49,6 +79,7 @@ pub fn append_meta(
     file.write(
         meta_info.to_vec().as_slice()
     ).expect("Aboba message here!");
+
     Ok(())
 }
 
@@ -126,7 +157,7 @@ pub fn encrypt_file(
                 .encrypt_next(buffer.as_slice())
                 .map_err(|err| io::Error::new(ErrorKind::InvalidData, format!("Encrypting large file: {0}", err)))?;
 
-            println!("Ciphertext length: {}", ciphertext.len());
+            //println!("Ciphertext length: {}", ciphertext.len());
             dist_file.write(&ciphertext)?;
         } else {
             let ciphertext = stream_encryptor
