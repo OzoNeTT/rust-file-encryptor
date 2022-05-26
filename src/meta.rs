@@ -17,7 +17,6 @@ pub struct EncryptedMeta {
     pub magic: [u8; MAGIC_SIZE],
     pub nonce: [u8; NONCE_SIZE],
     pub filename: String,
-    pub length: usize,
 }
 
 impl PartialEq<Self> for EncryptedMeta {
@@ -37,8 +36,11 @@ impl EncryptedMeta {
             magic: EncryptedMeta::MAGIC,
             filename: filename.into(),
             nonce: *nonce,
-            length: MAGIC_SIZE + filename.len() + NONCE_SIZE + 2
         };
+    }
+
+    pub fn len(&self) -> usize {
+        MAGIC_SIZE + self.filename.len() + NONCE_SIZE + 1
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
@@ -51,6 +53,7 @@ impl EncryptedMeta {
 
 
     pub fn from_vec(vec: &Vec<u8>) -> io::Result<Self> {
+
         if vec.len() <= META_MIN_SIZE {
             return Err(io::Error::new(ErrorKind::InvalidData, "Invalid length"));
         }
@@ -71,9 +74,9 @@ impl EncryptedMeta {
             .into_iter()
             .rev()
             .collect::<Vec<_>>()
-        ;
+            ;
 
-        let filename = match from_utf8(str_result.as_slice()){
+        let filename = match from_utf8(str_result.as_slice()) {
             Ok(str) => &str,
             Err(_) => ""
         };
@@ -82,7 +85,7 @@ impl EncryptedMeta {
         return Ok(EncryptedMeta::new(&nonce, filename));
     }
 
-    pub fn load_file(){
+    pub fn load_file() {
         return;
     }
 

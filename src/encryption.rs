@@ -3,7 +3,7 @@
 use std::{fs, io, iter};
 use std::convert::TryInto;
 use std::fs::{File, metadata};
-use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{BufReader, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use chacha20poly1305::{
     aead::{stream, Aead, NewAead},
@@ -14,7 +14,7 @@ use chacha20poly1305::{
 };
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use crate::meta::EncryptedMeta;
+use crate::meta::{EncryptedMeta, MAGIC_SIZE, NONCE_SIZE};
 use crate::OpenOrCreate;
 use std::ffi::OsStr;
 
@@ -75,7 +75,7 @@ pub fn append_meta(
         nonce,
         filename
     );
-    let mut file = File::open(source_file)?;
+    let mut file = File::open_append(source_file)?;
     file.write(
         meta_info.to_vec().as_slice()
     ).expect("Aboba message here!");

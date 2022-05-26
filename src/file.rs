@@ -16,12 +16,14 @@ pub fn read_file(path: &Path) -> io::Result<Vec<u8>> {
 
 pub trait OpenOrCreate {
     fn open_or_create(path: &Path) -> io::Result<File>;
+    fn open_write(path: &Path) -> io::Result<File>;
+    fn open_append(path: &Path) -> io::Result<File>;
 }
 
 impl OpenOrCreate for File {
     fn open_or_create(path: &Path) -> io::Result<File> {
         if path.exists() {
-            /// TODO: needed to loop for encryption in dir
+            // TODO: needed to loop for encryption in dir
             if !path.is_file() {
                 return Err(io::Error::new(ErrorKind::InvalidData, ""));
             }
@@ -41,6 +43,21 @@ impl OpenOrCreate for File {
             .create_new(true)
             .write(true)
             .append(false)
+            .open(path);
+    }
+
+
+    fn open_write(path: &Path) -> io::Result<File> {
+        return OpenOptions::new()
+            .write(true)
+            .append(false)
+            .open(path);
+    }
+
+    fn open_append(path: &Path) -> io::Result<File> {
+        return OpenOptions::new()
+            .write(true)
+            .append(true)
             .open(path);
     }
 }
