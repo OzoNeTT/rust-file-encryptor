@@ -10,6 +10,7 @@ use std::convert::TryInto;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
+
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 
@@ -58,16 +59,24 @@ fn main() -> io::Result<()> {
         Err(io::Error::new(ErrorKind::Other, "Invalid filepath!"))?;
     }
 
-    pretty_env_logger::init();
+    let key = match app_data.key {
+        Some(key) => key,
+        None => "".to_string(),
+    };
 
-    let target_file_path = Path::new("./bin/sample.txt.enc");
-    let decrypt_file_path = Path::new("./bin/sample.txt.dec");
 
-    //let key = [0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8, 0u8, 3u8, 4u8, 7u8];
-    let key = app_data.key.ok_or("1").unwrap();
+    if key == "" {
+        Err(io::Error::new(ErrorKind::Other, "No key provided!"))?;
+    }
+
     let hash_from_key = get_hash(&key)?;
 
+    pretty_env_logger::init();
 
+    //let target_file_path = Path::new("./bin/sample.txt.enc");
+    //let decrypt_file_path = Path::new("./bin/sample.txt.dec");
+    let target_file_path = file_path;
+    let decrypt_file_path = file_path;
 
     if try_parse(&file_path)? {
         //to decrypt
@@ -77,12 +86,20 @@ fn main() -> io::Result<()> {
                 &target_file_path
             )?;
             let nonce = meta.nonce;
-            decrypt_file(
+            let result = match decrypt_file(
                 &target_file_path,
                 &decrypt_file_path,
                 &hash_from_key,
                 &nonce,
-            )?;
+            ) {
+                Ok(result) => result,
+                Err(_) => false
+            };
+
+            if !result{
+                println!("Not correct key provided!")
+            }
+
         }
 
     } else {

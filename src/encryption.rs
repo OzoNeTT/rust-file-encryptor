@@ -89,7 +89,7 @@ pub fn decrypt_file(
     dist_file_path: &Path,
     key: &[u8; 32],
     nonce: &[u8],
-) -> io::Result<()> {
+) -> io::Result<bool> {
     let mut source_file = File::open(source_file_path)?;
     let mut dist_file = File::open_or_create(dist_file_path)?;
 
@@ -123,7 +123,7 @@ pub fn decrypt_file(
         }
     }
 
-    Ok(())
+    Ok(true)
 }
 
 pub fn encrypt_file(
