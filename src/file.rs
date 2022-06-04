@@ -3,7 +3,7 @@ use std::io;
 use std::io::{ErrorKind, Read, Write};
 use std::path::Path;
 
-/// read small file
+#[allow(dead_code)]
 pub fn read_file(path: &Path) -> io::Result<Vec<u8>> {
     let mut buffer: Vec<u8> = Vec::new();
     {
@@ -62,7 +62,7 @@ impl OpenOrCreate for File {
     }
 }
 
-
+#[allow(dead_code)]
 pub fn save_file(data: Vec<u8>, path: &Path) -> io::Result<()> {
     return Ok(
         File::open_or_create(path)?

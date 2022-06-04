@@ -2,14 +2,13 @@ mod file;
 mod encryption;
 mod meta;
 use arrayref::array_ref;
-use std::error::Error;
-use std::fs::{File, OpenOptions};
-use std::{io, iter, thread, time};
-use std::borrow::Borrow;
+use std::fs::{remove_file};
+use std::{io, iter};
 use std::convert::TryInto;
-use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::io::{ErrorKind, stdout, Write};
+use std::path::{Path};
 
+use rpassword::read_password;
 
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
@@ -17,11 +16,9 @@ use rand::distributions::Alphanumeric;
 use file::{save_file, read_file};
 use crate::encryption::{decrypt_file, try_parse, encrypt_file, append_meta, get_and_remove_meta};
 use crate::file::OpenOrCreate;
-
-use clap::{Arg, Parser};
+use clap::{Parser};
 use sha2::{Sha256, Digest};
 
-#[macro_use]
 extern crate log;
 extern crate core;
 
@@ -75,56 +72,24 @@ fn main() -> io::Result<()> {
 
     //let target_file_path = Path::new("./bin/sample.txt.enc");
     //let decrypt_file_path = Path::new("./bin/sample.txt.dec");
-    let target_file_path = file_path;
-    let decrypt_file_path = file_path;
+
+    //let mut meta_info: EncryptedMeta;
 
     if try_parse(&file_path)? {
-        //to decrypt
-        {
-            //target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
-            let meta = get_and_remove_meta(
-                &target_file_path
-            )?;
-            let nonce = meta.nonce;
-            let result = match decrypt_file(
-                &target_file_path,
-                &decrypt_file_path,
-                &hash_from_key,
-                &nonce,
-            ) {
-                Ok(result) => result,
-                Err(_) => false
-            };
-
-            if !result{
-                println!("Not correct key provided!")
-            }
-
-        }
-
+        try_decrypt(
+            file_path,
+            hash_from_key,
+        )?;
     } else {
         // to encrypt
-        let mut rng = thread_rng();
-        let rand_string = iter::repeat(())
-            .map(|()| rng.sample(Alphanumeric))
-            .map(u8::from)
-            .take(19)
-            .collect::<Vec<u8>>();
+        try_encrypt(
+            file_path,
+            hash_from_key,
+        )?;
+    }
 
-        let nonce = array_ref![rand_string.as_slice(), 0, 19];
-        {
-            encrypt_file(
-                &file_path,
-                &target_file_path,
-                &hash_from_key,
-                nonce,
-            )?;
-
-            append_meta(
-                nonce,
-                &target_file_path
-            )?;
-        }
+    if !app_data.keep_original {
+        remove_file(file_path)?;
     }
 
     println!("Job done!");

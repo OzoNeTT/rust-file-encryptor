@@ -1,22 +1,13 @@
 // use core::slice::SlicePattern;
 
-use std::{fs, io, iter};
-use std::convert::TryInto;
-use std::fs::{File, metadata};
-use std::io::{BufReader, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::{io};
+use std::fs::{File};
+use std::io::{ErrorKind, Read, Write};
 use std::path::Path;
-use chacha20poly1305::{
-    aead::{stream, Aead, NewAead},
-    XChaCha20Poly1305,
-    Key,
-    Nonce,
-    XNonce,
-};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
-use crate::meta::{EncryptedMeta, MAGIC_SIZE, NONCE_SIZE};
+use chacha20poly1305::{aead::{stream, NewAead}, XChaCha20Poly1305};
+use crate::meta::{EncryptedMeta};
 use crate::OpenOrCreate;
-use std::ffi::OsStr;
+
 
 
 pub fn try_parse(
@@ -83,7 +74,6 @@ pub fn append_meta(
     Ok(())
 }
 
-
 pub fn decrypt_file(
     source_file_path: &Path,
     dist_file_path: &Path,
@@ -131,7 +121,7 @@ pub fn encrypt_file(
     dist_file_path: &Path,
     key: &[u8; 32],
     nonce: &[u8],
-) -> io::Result<()> {
+) -> io::Result<bool> {
     let mut source_file = File::open(source_file_path)?;
     let mut dist_file = File::open_or_create(dist_file_path)?;
 
@@ -168,5 +158,5 @@ pub fn encrypt_file(
         }
     }
 
-    Ok(())
+    Ok(true)
 }
