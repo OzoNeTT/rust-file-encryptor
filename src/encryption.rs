@@ -47,15 +47,9 @@ pub fn get_and_remove_meta(source_file: &Path) -> io::Result<EncryptedMeta> {
 pub fn append_meta(nonce: &[u8; 19], original_file: &Path, source_file: &Path) -> io::Result<()> {
     let filename = original_file
         .file_name()
-        .ok_or_else(|| io::Error::new(
-            ErrorKind::Other,
-            "I don't know u dumb maybe idk",
-        ))?
+        .ok_or_else(|| io::Error::new(ErrorKind::Other, "I don't know u dumb maybe idk"))?
         .to_str()
-        .ok_or_else(|| io::Error::new(
-            ErrorKind::Other,
-            "I don't know u dumb maybe idk",
-        ))?;
+        .ok_or_else(|| io::Error::new(ErrorKind::Other, "I don't know u dumb maybe idk"))?;
 
     let meta_info = EncryptedMeta::new(nonce, filename);
     let mut file = File::open_append(source_file)?;

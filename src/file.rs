@@ -76,10 +76,9 @@ pub trait GetFileDirectory {
 
 impl GetFileDirectory for Path {
     fn file_dir(&self) -> io::Result<&Self> {
-        let file_dir = self.parent().ok_or_else(|| io::Error::new(
-            ErrorKind::InvalidData,
-            "Unable to get file directory",
-        ))?;
+        let file_dir = self.parent().ok_or_else(|| {
+            io::Error::new(ErrorKind::InvalidData, "Unable to get file directory")
+        })?;
 
         if !file_dir.is_dir() {
             return Err(io::Error::new(
