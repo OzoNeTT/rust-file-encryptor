@@ -1,14 +1,13 @@
-use std::{io};
-use std::io::ErrorKind;
 use arrayref::array_ref;
+use std::io;
+use std::io::ErrorKind;
 use std::str;
-use std::str::{from_utf8};
+use std::str::from_utf8;
 
 pub const MAGIC_SIZE: usize = 4usize;
 pub const NONCE_SIZE: usize = 19usize;
 
 const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
-
 
 #[derive(Debug)]
 pub struct EncryptedMeta {
@@ -26,10 +25,7 @@ impl PartialEq<Self> for EncryptedMeta {
 impl EncryptedMeta {
     pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
 
-    pub fn new(
-        nonce: &[u8; 19],
-        filename: &str,
-    ) -> Self {
+    pub fn new(nonce: &[u8; 19], filename: &str) -> Self {
         return Self {
             magic: EncryptedMeta::MAGIC,
             filename: filename.into(),
@@ -42,14 +38,14 @@ impl EncryptedMeta {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        vec![0u8].into_iter()
+        vec![0u8]
+            .into_iter()
             .chain(self.filename.bytes())
             .chain([0u8])
             .chain(self.nonce)
             .chain(self.magic)
             .collect::<Vec<u8>>()
     }
-
 
     pub fn from_vec(vec: &Vec<u8>) -> io::Result<Self> {
         if vec.len() <= META_MIN_SIZE {
@@ -59,7 +55,11 @@ impl EncryptedMeta {
             return Err(io::Error::new(ErrorKind::InvalidData, "Invalid magic"));
         }
 
-        let nonce = array_ref![vec[vec.len() - (MAGIC_SIZE + NONCE_SIZE)..vec.len() - 4], 0, 19];
+        let nonce = array_ref![
+            vec[vec.len() - (MAGIC_SIZE + NONCE_SIZE)..vec.len() - 4],
+            0,
+            19
+        ];
 
         let str_end = vec
             .into_iter()
@@ -70,17 +70,16 @@ impl EncryptedMeta {
             .clone()
             .map_while(|c| match *c != b'\x00' {
                 true => Some(*c),
-                false => None
+                false => None,
             })
             .collect::<Vec<_>>()
             .into_iter()
             .rev()
-            .collect::<Vec<_>>()
-            ;
+            .collect::<Vec<_>>();
 
         let filename = match from_utf8(str_result.as_slice()) {
             Ok(str) => &str,
-            Err(_) => ""
+            Err(_) => "",
         };
         println!("Filename {:?}", from_utf8(str_result.as_slice()));
 
@@ -94,10 +93,13 @@ impl EncryptedMeta {
 
 #[cfg(test)]
 mod tests {
-    use std::io;
     use crate::meta::EncryptedMeta;
+    use std::io;
 
-    const NONCE: [u8; 19] = [10u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8];
+    const NONCE: [u8; 19] = [
+        10u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8,
+        8u8,
+    ];
 
     #[test]
     fn to_vec() {
@@ -114,10 +116,7 @@ mod tests {
         let a = b"\x00file.txt\x00\x0A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED".to_vec();
         let result = EncryptedMeta::from_vec(&a)?;
 
-        assert_eq!(
-            result,
-            EncryptedMeta::new(&NONCE, "file.txt"),
-        );
+        assert_eq!(result, EncryptedMeta::new(&NONCE, "file.txt"),);
 
         Ok(())
     }

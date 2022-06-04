@@ -1,27 +1,27 @@
-mod file;
 mod encryption;
+mod file;
 mod meta;
 
 use arrayref::array_ref;
-use std::fs::{remove_file};
-use std::{io, iter};
 use std::convert::TryInto;
-use std::io::{ErrorKind, stdout, Write};
-use std::path::{Path};
+use std::fs::remove_file;
+use std::io::{stdout, ErrorKind, Write};
+use std::path::Path;
+use std::{io, iter};
 
 use rpassword::read_password;
 
-use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 
-use file::{GetFileDirectory};
-use crate::encryption::{decrypt_file, try_parse, encrypt_file, append_meta, get_meta};
+use crate::encryption::{append_meta, decrypt_file, encrypt_file, get_meta, try_parse};
 use crate::file::OpenOrCreate;
-use clap::{Parser};
-use sha2::{Sha256, Digest};
+use clap::Parser;
+use file::GetFileDirectory;
+use sha2::{Digest, Sha256};
 
-extern crate log;
 extern crate core;
+extern crate log;
 
 #[derive(Parser, Debug)]
 struct AppData {
@@ -35,26 +35,21 @@ struct AppData {
     pub keep_original: bool,
 }
 
-fn get_hash(
-    key: &str,
-) -> io::Result<[u8; 32]> {
+fn get_hash(key: &str) -> io::Result<[u8; 32]> {
     let mut hasher = Sha256::new();
     hasher.update(key.as_bytes());
 
-    let hashed_key: [u8; 32] = hasher.finalize().as_slice().try_into().expect(
-        "I don't know wtf?"
-    );
+    let hashed_key: [u8; 32] = hasher
+        .finalize()
+        .as_slice()
+        .try_into()
+        .expect("I don't know wtf?");
     Ok(hashed_key)
 }
 
-fn try_decrypt(
-    file_path: &Path,
-    hash_from_key: [u8; 32],
-) -> io::Result<()> {
+fn try_decrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
     //target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
-    let meta = get_meta(
-        &file_path
-    )?;
+    let meta = get_meta(&file_path)?;
     let nonce = meta.nonce;
 
     //   .\\filename.txt
@@ -65,9 +60,7 @@ fn try_decrypt(
     //let decrypt_file_path = &file_path.to_owned()
     //    .with_file_name(filename);
 
-    let decrypt_file_path = file_path
-        .file_dir()?
-        .join(filename);
+    let decrypt_file_path = file_path.file_dir()?.join(filename);
 
     println!("decrypt_file_path: {:?}", decrypt_file_path);
     let result = decrypt_file(
@@ -80,16 +73,16 @@ fn try_decrypt(
     )?;
 
     if !result {
-        return Err(io::Error::new(ErrorKind::InvalidData, "Not correct key provided!"));
+        return Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "Not correct key provided!",
+        ));
     }
 
     Ok(())
 }
 
-fn try_encrypt(
-    file_path: &Path,
-    hash_from_key: [u8; 32],
-) -> io::Result<()> {
+fn try_encrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
     let target_file_path = &file_path.with_extension("enc");
 
     let mut rng = thread_rng();
@@ -101,26 +94,20 @@ fn try_encrypt(
 
     let nonce = array_ref![rand_string.as_slice(), 0, 19];
     {
-        let result = encrypt_file(
-            &file_path,
-            &target_file_path,
-            &hash_from_key,
-            nonce,
-        ).unwrap_or(false);
+        let result =
+            encrypt_file(&file_path, &target_file_path, &hash_from_key, nonce).unwrap_or(false);
 
         if !result {
-            return Err(io::Error::new(ErrorKind::InvalidData, "Not correct key provided!"));
+            return Err(io::Error::new(
+                ErrorKind::InvalidData,
+                "Not correct key provided!",
+            ));
         }
 
-        append_meta(
-            nonce,
-            &file_path,
-            &target_file_path,
-        )?;
+        append_meta(nonce, &file_path, &target_file_path)?;
     }
     Ok(())
 }
-
 
 fn main() -> io::Result<()> {
     let app_data: AppData = AppData::parse();
@@ -154,16 +141,10 @@ fn main() -> io::Result<()> {
     //let mut meta_info: EncryptedMeta;
 
     if try_parse(&file_path)? {
-        try_decrypt(
-            file_path,
-            hash_from_key,
-        )?;
+        try_decrypt(file_path, hash_from_key)?;
     } else {
         // to encrypt
-        try_encrypt(
-            file_path,
-            hash_from_key,
-        )?;
+        try_encrypt(file_path, hash_from_key)?;
     }
 
     if !app_data.keep_original {
