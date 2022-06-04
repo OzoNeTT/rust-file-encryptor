@@ -29,7 +29,7 @@ pub fn get_meta(source_file: &Path) -> io::Result<EncryptedMeta> {
     let mut file = File::open_read_only(source_file)?;
     file.read_to_end(&mut buff)?;
 
-    return Ok(EncryptedMeta::from_vec(&buff)?);
+    EncryptedMeta::from_vec(&buff)
 }
 
 #[allow(dead_code)]
@@ -47,19 +47,19 @@ pub fn get_and_remove_meta(source_file: &Path) -> io::Result<EncryptedMeta> {
 pub fn append_meta(nonce: &[u8; 19], original_file: &Path, source_file: &Path) -> io::Result<()> {
     let filename = original_file
         .file_name()
-        .ok_or(io::Error::new(
+        .ok_or_else(|| io::Error::new(
             ErrorKind::Other,
             "I don't know u dumb maybe idk",
         ))?
         .to_str()
-        .ok_or(io::Error::new(
+        .ok_or_else(|| io::Error::new(
             ErrorKind::Other,
             "I don't know u dumb maybe idk",
         ))?;
 
     let meta_info = EncryptedMeta::new(nonce, filename);
     let mut file = File::open_append(source_file)?;
-    file.write(meta_info.to_vec().as_slice())
+    file.write_all(meta_info.to_vec().as_slice())
         .expect("Aboba message here!");
 
     Ok(())
@@ -117,11 +117,11 @@ pub fn decrypt_file(
 
         if glob_len >= file_size_nometa {
             let ciphertext = stream_decryptor.decrypt_last(slice).map_err(err_handle)?;
-            dist_file.write(&ciphertext)?;
+            dist_file.write_all(&ciphertext)?;
             break;
         } else {
             let ciphertext = stream_decryptor.decrypt_next(slice).map_err(err_handle)?;
-            dist_file.write(&ciphertext)?;
+            dist_file.write_all(&ciphertext)?;
         }
     }
 
@@ -170,7 +170,7 @@ pub fn encrypt_file(
                 })?;
 
             // println!("Ciphertext length: {}", ciphertext.len());
-            dist_file.write(&ciphertext)?;
+            dist_file.write_all(&ciphertext)?;
         } else {
             let ciphertext = stream_encryptor
                 .encrypt_last(&buffer[..read_count])
@@ -180,7 +180,7 @@ pub fn encrypt_file(
                         format!("Encrypting large file: {0}", err),
                     )
                 })?;
-            dist_file.write(&ciphertext)?;
+            dist_file.write_all(&ciphertext)?;
             break;
         }
     }

@@ -26,11 +26,11 @@ impl EncryptedMeta {
     pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
 
     pub fn new(nonce: &[u8; 19], filename: &str) -> Self {
-        return Self {
+        Self {
             magic: EncryptedMeta::MAGIC,
             filename: filename.into(),
             nonce: *nonce,
-        };
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -62,7 +62,7 @@ impl EncryptedMeta {
         ];
 
         let str_end = vec
-            .into_iter()
+            .iter()
             .rev()
             .skip(MAGIC_SIZE + NONCE_SIZE + 1)  // +one zero char
             ;
@@ -77,13 +77,10 @@ impl EncryptedMeta {
             .rev()
             .collect::<Vec<_>>();
 
-        let filename = match from_utf8(str_result.as_slice()) {
-            Ok(str) => &str,
-            Err(_) => "",
-        };
+        let filename = from_utf8(str_result.as_slice()).unwrap_or("");
         println!("Filename {:?}", from_utf8(str_result.as_slice()));
 
-        return Ok(EncryptedMeta::new(&nonce, filename));
+        Ok(EncryptedMeta::new(nonce, filename))
     }
 
     pub fn is_valid_encoded(vec: &Vec<u8>) -> bool {

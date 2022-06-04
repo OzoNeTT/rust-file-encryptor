@@ -67,16 +67,16 @@ impl OpenOrCreate for File {
 
 #[allow(dead_code)]
 pub fn save_file(data: Vec<u8>, path: &Path) -> io::Result<()> {
-    return Ok(File::open_or_create(path)?.write_all(&data)?);
+    File::open_or_create(path)?.write_all(&data)
 }
 
 pub trait GetFileDirectory {
-    fn file_dir(self: &Self) -> io::Result<&Self>;
+    fn file_dir(&self) -> io::Result<&Self>;
 }
 
 impl GetFileDirectory for Path {
-    fn file_dir(self: &Self) -> io::Result<&Self> {
-        let file_dir = self.parent().ok_or(io::Error::new(
+    fn file_dir(&self) -> io::Result<&Self> {
+        let file_dir = self.parent().ok_or_else(|| io::Error::new(
             ErrorKind::InvalidData,
             "Unable to get file directory",
         ))?;

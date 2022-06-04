@@ -49,7 +49,7 @@ fn get_hash(key: &str) -> io::Result<[u8; 32]> {
 
 fn try_decrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
     //target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
-    let meta = get_meta(&file_path)?;
+    let meta = get_meta(file_path)?;
     let nonce = meta.nonce;
 
     //   .\\filename.txt
@@ -64,7 +64,7 @@ fn try_decrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
 
     println!("decrypt_file_path: {:?}", decrypt_file_path);
     let result = decrypt_file(
-        &file_path,
+        file_path,
         &decrypt_file_path,
         meta.len(),
         // 0,
@@ -95,7 +95,7 @@ fn try_encrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
     let nonce = array_ref![rand_string.as_slice(), 0, 19];
     {
         let result =
-            encrypt_file(&file_path, &target_file_path, &hash_from_key, nonce).unwrap_or(false);
+            encrypt_file(file_path, target_file_path, &hash_from_key, nonce).unwrap_or(false);
 
         if !result {
             return Err(io::Error::new(
@@ -104,7 +104,7 @@ fn try_encrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
             ));
         }
 
-        append_meta(nonce, &file_path, &target_file_path)?;
+        append_meta(nonce, file_path, target_file_path)?;
     }
     Ok(())
 }
@@ -140,7 +140,7 @@ fn main() -> io::Result<()> {
 
     //let mut meta_info: EncryptedMeta;
 
-    if try_parse(&file_path)? {
+    if try_parse(file_path)? {
         try_decrypt(file_path, hash_from_key)?;
     } else {
         // to encrypt
