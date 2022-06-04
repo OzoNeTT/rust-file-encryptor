@@ -72,34 +72,34 @@ pub fn decrypt_file(
     let aead = XChaCha20Poly1305::new(key.as_ref().into());
     let mut stream_decryptor = stream::DecryptorBE32::from_aead(aead, nonce.into());
 
-    // let method = &StreamDecryptorType::decrypt_next;
+    let method = &StreamDecryptorType::decrypt_next;
 
     const BUFFER_LEN: usize = 500 + 16;
     let mut glob_len = 0usize;
     let file_size = source_file.metadata()?.len() as usize;
     let file_size_nometa = file_size - meta_length;
 
-    //println!("file_size        = {:?}", file_size);
-    //println!("file_size_nometa = {:?}", file_size_nometa);
+    println!("file_size        = {:?}", file_size);
+    println!("file_size_nometa = {:?}", file_size_nometa);
 
     loop {
         let mut buffer = [0u8; BUFFER_LEN];
         let mut read_count = source_file.read(&mut buffer)?;
-        //println!("read_count = {:?}", read_count);
+        println!("read_count = {:?}", read_count);
 
         glob_len += read_count;
         if glob_len > file_size_nometa {
             let delta = glob_len - file_size_nometa;
 
-            //println!("glob_len         = {:?}", glob_len);
-            //println!("file_size_nometa = {:?}", file_size_nometa);
+            println!("glob_len         = {:?}", glob_len);
+            println!("file_size_nometa = {:?}", file_size_nometa);
             glob_len = file_size_nometa;
             read_count -= delta;
-            //println!("read_count'      = {:?}", read_count);
+            println!("read_count'      = {:?}", read_count);
         }
 
         println!("Decrypting {:?}/{:?}", glob_len, file_size_nometa);
-        //println!("Buffer: {:?}", &buffer[..read_count]);
+        println!("Buffer: {:?}", &buffer[..read_count]);
 
         let slice = &buffer[..read_count];
         let err_handle = |err| {
