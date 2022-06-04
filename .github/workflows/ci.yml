@@ -3,6 +3,7 @@
     branches:
       - '*'
   pull_request: null
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -33,7 +34,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
           - os: ubuntu-latest
           - os: windows-latest
     steps:
@@ -94,7 +94,6 @@ jobs:
           args: '-- -D warnings'
   version:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@master
         with:
@@ -108,22 +107,43 @@ jobs:
         with:
           version: '${{ steps.get_previous_version.outputs.PREVIOUS_VERSION }}'
       - run: mkdir -p ./version
-      - if: "!contains(github.event.head_commit.message, 'BC BREAK') && !contains(github.event.head_commit.message, 'Signed-off-by: dependabot-preview[bot] <support@dependabot.com>')"
+      - if: "contains(github.event.head_commit.message, 'Update')"
         run: echo "$VERSION" >./version/version
         env:
-          VERSION: ${{ steps.semvers.outputs.v_minor }}
-      - if: "contains(github.event.head_commit.message, 'Signed-off-by: dependabot-preview[bot] <support@dependabot.com>')"
-        run: echo "$VERSION" >./version/version
-        env:
-          VERSION: ${{ steps.semvers.outputs.v_patch }}
+          VERSION: ${{ steps.semvers.outputs.patch }}
       - run: echo "$VERSION" > ./version/version
         env:
-          VERSION: ${{ steps.semvers.outputs.v_major }}
-        if: "contains(github.event.head_commit.message, 'BC BREAK')"
+          VERSION: ${{ steps.semvers.outputs.major }}
+        if: "contains(github.event.head_commit.message, 'Release')"
       - uses: actions/upload-artifact@master
         with:
           name: version
           path: ./version/version
+  version-test:
+    needs:
+      - version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          lfs: true
+      - id: get_repository_name
+        run: echo ::set-output name=REPOSITORY_NAME::$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $2}' | sed -e "s/:refs//")
+        shell: bash
+      - uses: actions/download-artifact@master
+        with:
+          name: version
+      - id: get_version
+        run: 'echo ::set-output name=VERSION::$(cat ./version/version)'
+        shell: bash
+      - run: |
+          ls ./version
+          file ./version
+          cat ./version
+        shell: bash
+        env:
+          VERSION: '${{ steps.get_version.outputs.VERSION }}'
+
   build:
     needs:
       - version
@@ -134,9 +154,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            suffix: ''
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             suffix: ''
@@ -182,8 +199,6 @@ jobs:
           VERSION: '${{ steps.get_version.outputs.VERSION }}'
         run: |
           TEMP_FILE="$(mktemp)"
-          toml set Cargo.toml package.version "${VERSION:1}" > "$TEMP_FILE"
-          mv "$TEMP_FILE" Cargo.toml
       - uses: actions-rs/cargo@v1
         env:
           VERSION: '${{ steps.get_version.outputs.VERSION }}'
@@ -211,14 +226,11 @@ jobs:
         with:
           name: version
       - id: get_version
-        run: 'echo ::set-output name=VERSION::$(cat ./version/version)'
+        run: 'echo ::set-output name=VERSION::$(cat ./version)'
         shell: bash
       - uses: actions/download-artifact@master
         with:
           name: ${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-unknown-linux-gnu
-      - uses: actions/download-artifact@master
-        with:
-          name: ${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-apple-darwin
       - uses: actions/download-artifact@master
         with:
           name: ${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-pc-windows-msvc
@@ -233,16 +245,9 @@ jobs:
           args: 'toml-cli'
       - run: |
           TEMP_FILE="$(mktemp)"
-          toml set Cargo.toml package.version "${VERSION:1}" > "$TEMP_FILE"
-          mv "$TEMP_FILE" Cargo.toml
         shell: bash
         env:
           VERSION: '${{ steps.get_version.outputs.VERSION }}'
-      - uses: stefanzweifel/git-auto-commit-action@v4.1.3
-        with:
-          commit_message: Bump cargo version
-          branch: ${{ github.head_ref }}
-          file_pattern: Cargo.toml
       - id: create_release
         uses: actions/create-release@v1.0.0
         env:
@@ -257,7 +262,7 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
         with:
           upload_url: '${{ steps.create_release.outputs.upload_url }}'
-          asset_path: ./${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-unknown-linux-gnu/${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}
+          asset_path: ./${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}
           asset_name: ${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-unknown-linux-gnu
           asset_content_type: application/octet-stream
       - uses: actions/upload-release-asset@v1.0.1
@@ -265,14 +270,6 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
         with:
           upload_url: '${{ steps.create_release.outputs.upload_url }}'
-          asset_path: ./${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-apple-darwin/${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}
-          asset_name: ${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-apple-darwin
-          asset_content_type: application/octet-stream
-      - uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-        with:
-          upload_url: '${{ steps.create_release.outputs.upload_url }}'
-          asset_path: ./${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-pc-windows-msvc/${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}.exe
+          asset_path: ./${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}.exe
           asset_name:  ${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-x86_64-pc-windows-msvc.exe
           asset_content_type: application/octet-stream
