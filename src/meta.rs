@@ -1,10 +1,8 @@
-use std::borrow::Borrow;
-use std::convert::{TryFrom, TryInto};
-use std::{cmp, io};
+use std::{io};
 use std::io::ErrorKind;
 use arrayref::array_ref;
 use std::str;
-use std::str::{from_utf8, Utf8Error};
+use std::str::{from_utf8};
 
 pub const MAGIC_SIZE: usize = 4usize;
 pub const NONCE_SIZE: usize = 19usize;
@@ -40,12 +38,13 @@ impl EncryptedMeta {
     }
 
     pub fn len(&self) -> usize {
-        MAGIC_SIZE + self.filename.len() + NONCE_SIZE + 1
+        MAGIC_SIZE + self.filename.len() + NONCE_SIZE + 2
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
         vec![0u8].into_iter()
             .chain(self.filename.bytes())
+            .chain([0u8])
             .chain(self.nonce)
             .chain(self.magic)
             .collect::<Vec<u8>>()
@@ -53,7 +52,6 @@ impl EncryptedMeta {
 
 
     pub fn from_vec(vec: &Vec<u8>) -> io::Result<Self> {
-
         if vec.len() <= META_MIN_SIZE {
             return Err(io::Error::new(ErrorKind::InvalidData, "Invalid length"));
         }
@@ -63,7 +61,11 @@ impl EncryptedMeta {
 
         let nonce = array_ref![vec[vec.len() - (MAGIC_SIZE + NONCE_SIZE)..vec.len() - 4], 0, 19];
 
-        let str_end = vec.into_iter().rev().skip(MAGIC_SIZE + NONCE_SIZE);
+        let str_end = vec
+            .into_iter()
+            .rev()
+            .skip(MAGIC_SIZE + NONCE_SIZE + 1)  // +one zero char
+            ;
         let str_result = str_end
             .clone()
             .map_while(|c| match *c != b'\x00' {
@@ -85,10 +87,6 @@ impl EncryptedMeta {
         return Ok(EncryptedMeta::new(&nonce, filename));
     }
 
-    pub fn load_file() {
-        return;
-    }
-
     pub fn is_valid_encoded(vec: &Vec<u8>) -> bool {
         vec[vec.len() - MAGIC_SIZE..] == Self::MAGIC
     }
@@ -99,7 +97,7 @@ mod tests {
     use std::io;
     use crate::meta::EncryptedMeta;
 
-    const NONCE: [u8; 19] = [0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8];
+    const NONCE: [u8; 19] = [10u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8];
 
     #[test]
     fn to_vec() {
@@ -107,13 +105,13 @@ mod tests {
 
         assert_eq!(
             meta.to_vec().as_slice(),
-            b"\x00file.txt\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED",
+            b"\x00file.txt\x00\x0A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED",
         );
     }
 
     #[test]
     fn from_vec() -> io::Result<()> {
-        let a = b"\x00file.txt\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED".to_vec();
+        let a = b"\x00file.txt\x00\x0A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED".to_vec();
         let result = EncryptedMeta::from_vec(&a)?;
 
         assert_eq!(
