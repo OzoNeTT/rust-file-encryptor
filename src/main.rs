@@ -1,20 +1,25 @@
 mod encryption;
+#[allow(dead_code)]
+mod error;
 mod file;
 mod meta;
 
 use arrayref::array_ref;
 use std::convert::TryInto;
 use std::fs::remove_file;
-use std::io::{stdout, ErrorKind, Write};
+use std::io::Write;
 use std::path::Path;
 use std::{io, iter};
 
-use rpassword::read_password;
+use rpassword::prompt_password;
 
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 
-use crate::encryption::{append_meta, decrypt_file, encrypt_file, get_meta, try_parse};
+use crate::encryption::{
+    append_meta, decrypt_file, encrypt_file, get_meta, try_parse,
+};
+use crate::error::ErrorKind::WrongPassword;
 use crate::file::OpenOrCreate;
 use clap::Parser;
 use file::GetFileDirectory;
@@ -31,23 +36,29 @@ struct AppData {
     #[clap(short = 'k', long = "key", help = "Key")]
     pub key: Option<String>,
 
+    #[clap(short = 'p', long = "preview", help = "Preview-only mode")]
+    pub preview: Option<bool>,
+
     #[clap(long = "keep", help = "Do not delete original file")]
     pub keep_original: bool,
 }
 
-fn get_hash(key: &str) -> io::Result<[u8; 32]> {
+fn get_hash(key: &str) -> error::Result<[u8; 32]> {
     let mut hasher = Sha256::new();
     hasher.update(key.as_bytes());
 
     let hashed_key: [u8; 32] = hasher
         .finalize()
         .as_slice()
-        .try_into()
-        .expect("I don't know wtf?");
+        .try_into()?;
     Ok(hashed_key)
 }
 
-fn try_decrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
+fn try_decrypt(
+    file_path: &Path,
+    hash_from_key: [u8; 32],
+    preview: bool,
+) -> error::Result<()> {
     //target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
     let meta = get_meta(file_path)?;
     let nonce = meta.nonce;
@@ -62,27 +73,25 @@ fn try_decrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
 
     let decrypt_file_path = file_path.file_dir()?.join(filename);
 
-    println!("decrypt_file_path: {:?}", decrypt_file_path);
-    let result = decrypt_file(
+    println!(
+        "decrypt_file_path: {:?}",
+        decrypt_file_path
+    );
+    decrypt_file(
         file_path,
         &decrypt_file_path,
         meta.len(),
         // 0,
         &hash_from_key,
         &nonce,
-    )?;
-
-    if !result {
-        return Err(io::Error::new(
-            ErrorKind::InvalidData,
-            "Not correct key provided!",
-        ));
-    }
+        preview,
+    )
+    .map_err(|e| error::Error::new(WrongPassword, e))?;
 
     Ok(())
 }
 
-fn try_encrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
+fn try_encrypt(file_path: &Path, hash_from_key: [u8; 32]) -> error::Result<()> {
     let target_file_path = &file_path.with_extension("enc");
 
     let mut rng = thread_rng();
@@ -94,22 +103,20 @@ fn try_encrypt(file_path: &Path, hash_from_key: [u8; 32]) -> io::Result<()> {
 
     let nonce = array_ref![rand_string.as_slice(), 0, 19];
     {
-        let result =
-            encrypt_file(file_path, target_file_path, &hash_from_key, nonce).unwrap_or(false);
-
-        if !result {
-            return Err(io::Error::new(
-                ErrorKind::InvalidData,
-                "Not correct key provided!",
-            ));
-        }
+        encrypt_file(
+            file_path,
+            target_file_path,
+            &hash_from_key,
+            nonce,
+        )
+        .map_err(|e| error::Error::new(WrongPassword, e))?;
 
         append_meta(nonce, file_path, target_file_path)?;
     }
     Ok(())
 }
 
-fn main() -> io::Result<()> {
+fn main() -> error::Result<()> {
     let app_data: AppData = AppData::parse();
     println!("Filepath: {:?}", app_data.filepath);
 
@@ -117,16 +124,14 @@ fn main() -> io::Result<()> {
 
     let file_path = Path::new(&app_data.filepath);
     if !file_path.exists() {
-        Err(io::Error::new(ErrorKind::Other, "Invalid filepath!"))?;
+        return Err(error::Error::new_file_not_found(
+            file_path.to_str().unwrap_or(""),
+        ));
     }
 
     let key = match app_data.key {
         Some(key) => key,
-        None => {
-            print!("Enter the key: ");
-            stdout().flush()?;
-            read_password()?
-        }
+        None => prompt_password("Enter the key: ")?,
     };
 
     println!("Key '{}' will be used", &key);
@@ -140,14 +145,43 @@ fn main() -> io::Result<()> {
 
     //let mut meta_info: EncryptedMeta;
 
+    let mut preview: bool = false;
     if try_parse(file_path)? {
-        try_decrypt(file_path, hash_from_key)?;
+        preview = match app_data.preview {
+            Some(v) => v,
+            None => {
+                // TODO: encapsulate stdin somehow (macros maybe >.<)
+
+                let mut dialog_result: Option<bool> = None;
+                while dialog_result.is_none() {
+                    print!("Preview the file content (do not create decrypted file) [Y/n]: ");
+                    io::stdout().flush()?;
+
+                    let mut buffer = String::new();
+                    io::stdin().read_line(&mut buffer)?;
+                    buffer = buffer.trim().to_lowercase();
+                    println!("buffer: {buffer:?}");
+
+                    dialog_result = if buffer == "y" {
+                        Some(true)
+                    } else if buffer == "n" {
+                        Some(false)
+                    } else {
+                        None
+                    };
+                }
+
+                dialog_result.unwrap()
+            }
+        };
+
+        try_decrypt(file_path, hash_from_key, preview)?;
     } else {
         // to encrypt
         try_encrypt(file_path, hash_from_key)?;
     }
 
-    if !app_data.keep_original {
+    if !app_data.keep_original && !preview {
         remove_file(file_path)?;
     }
 

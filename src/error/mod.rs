@@ -3,6 +3,7 @@ mod tests;
 
 use chacha20poly1305::aead;
 use core::fmt;
+use std::array::TryFromSliceError;
 use std::{error, io, result};
 
 pub type Result<T> = result::Result<T, Error>;
@@ -23,26 +24,37 @@ enum Repr {
     Custom(Box<Custom>),
 }
 
+type GenericError = dyn error::Error + Send + Sync;
+type GenericErrorStatic = dyn error::Error + Send + Sync + 'static;
+
 #[derive(Debug)]
 struct Custom {
     kind: ErrorKind,
-    error: Box<dyn error::Error + Send + Sync>,
+    error: Box<GenericError>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ErrorKind {
     FileNotFound,
+    InvalidData,
     WrongPassword,
+    FileTooSmall,
+    FileInvalidMagic,
     IOError,
+    OtherError,
 }
 
 impl ErrorKind {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         use ErrorKind::*;
-        match *self {
+        match self {
             FileNotFound => "File not found",
+            InvalidData => "Invalid data",
             WrongPassword => "Wrong password",
-            IOError => "IOError",
+            FileTooSmall => "File is too small",
+            FileInvalidMagic => "Invalid file magic",
+            IOError => "IO Error",
+            OtherError => "Unknown error",
         }
     }
 }
@@ -66,18 +78,37 @@ impl From<io::Error> for Error {
     }
 }
 
+impl From<TryFromSliceError> for Error {
+    fn from(err: TryFromSliceError) -> Self {
+        Error {
+            repr: Repr::Custom(Box::from(Custom {
+                kind: ErrorKind::OtherError,
+                error: Box::from(err),
+            })),
+        }
+    }
+}
+
+impl From<aead::Error> for Error {
+    fn from(err: aead::Error) -> Self {
+        Error {
+            repr: Repr::Custom(Box::from(Custom {
+                kind: ErrorKind::InvalidData,
+                error: Box::from(err),
+            })),
+        }
+    }
+}
+
 impl Error {
     pub fn new<E>(kind: ErrorKind, error: E) -> Self
     where
-        E: Into<Box<dyn error::Error + Send + Sync>>,
+        E: Into<Box<GenericError>>,
     {
         Self::_new(kind, error.into())
     }
 
-    fn _new(
-        kind: ErrorKind,
-        error: Box<dyn error::Error + Send + Sync>,
-    ) -> Self {
+    fn _new(kind: ErrorKind, error: Box<GenericError>) -> Self {
         Error {
             repr: Repr::Custom(Box::from(Custom { kind, error })),
         }
@@ -93,9 +124,7 @@ impl Error {
     }
 
     #[inline]
-    pub fn get_ref(
-        &self,
-    ) -> Option<&(dyn error::Error + Send + Sync + 'static)> {
+    pub fn get_ref(&self) -> Option<&GenericErrorStatic> {
         match &self.repr {
             Repr::Simple(..) => None,
             Repr::SimpleMessage(..) => None,
@@ -104,7 +133,8 @@ impl Error {
     }
 
     #[inline]
-    pub fn into_inner(self) -> Option<Box<dyn error::Error + Send + Sync>> {
+    #[must_use]
+    pub fn into_inner(self) -> Option<Box<GenericError>> {
         match self.repr {
             Repr::Simple(..) => None,
             Repr::SimpleMessage(..) => None,
@@ -113,12 +143,32 @@ impl Error {
     }
 
     #[inline]
+    #[must_use]
+    pub fn get_mut(&mut self) -> Option<&mut GenericErrorStatic> {
+        match self.repr {
+            Repr::Simple(..) => None,
+            Repr::SimpleMessage(..) => None,
+            Repr::Custom(ref mut c) => Some(&mut *c.error),
+        }
+    }
+
+    #[inline]
+    #[must_use]
     pub fn kind(&self) -> ErrorKind {
         match self.repr {
             Repr::Simple(kind) => kind,
             Repr::SimpleMessage(kind, _) => kind,
             Repr::Custom(ref c) => c.kind,
         }
+    }
+
+    ///
+
+    pub fn new_file_not_found(filename: &str) -> Self {
+        Self::new(
+            ErrorKind::FileNotFound,
+            format!("File '{}' not found", filename),
+        )
     }
 }
 
