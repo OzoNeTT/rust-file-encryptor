@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::{error, error::ErrorKind};
 use arrayref::array_ref;
 use std::str;
@@ -75,27 +78,36 @@ impl EncryptedMeta {
             .collect::<Vec<u8>>()
     }
 
-    pub fn from_vec(vec: &[u8]) -> error::Result<Self> {
+    pub fn is_valid_encoded(vec: &[u8]) -> bool {
         if vec.len() <= META_MIN_SIZE {
+            false
+        } else {
+            vec[vec.len() - MAGIC_SIZE..] == Self::MAGIC
+        }
+    }
+}
+
+impl TryInto<EncryptedMeta> for &[u8] {
+    type Error = error::Error;
+
+    fn try_into(self) -> Result<EncryptedMeta, Self::Error> {
+        if self.len() <= META_MIN_SIZE {
             return Err(ErrorKind::FileTooSmall.into());
         }
-        if vec[vec.len() - MAGIC_SIZE..] != Self::MAGIC {
+        if self[self.len() - MAGIC_SIZE..] != EncryptedMeta::MAGIC {
             return Err(ErrorKind::FileInvalidMagic.into());
         }
 
         let nonce = array_ref![
-            vec[vec.len() - (MAGIC_SIZE + NONCE_SIZE)..vec.len() - 4],
+            self[self.len() - (MAGIC_SIZE + NONCE_SIZE)..self.len() - 4],
             0,
             19
         ];
 
-        let str_end = vec
+        let filename = self
             .iter()
             .rev()
-            .skip(MAGIC_SIZE + NONCE_SIZE + 1)  // +one zero char
-            ;
-        let str_result = str_end
-            .clone()
+            .skip(MAGIC_SIZE + NONCE_SIZE + 1) // +one zero char
             .map_while(|c| match *c != b'\x00' {
                 true => Some(*c),
                 false => None,
@@ -105,54 +117,22 @@ impl EncryptedMeta {
             .rev()
             .collect::<Vec<_>>();
 
-        let filename = from_utf8(str_result.as_slice()).unwrap_or("");
+        let filename_str = from_utf8(filename.as_slice()).map_err(|e| {
+            error::Error::new(ErrorKind::FileMetaDecodeError, e)
+        })?;
         println!(
             "Filename {:?}",
-            from_utf8(str_result.as_slice())
+            from_utf8(filename.as_slice())
         );
 
-        Ok(EncryptedMeta::new(nonce, filename))
-    }
-
-    pub fn is_valid_encoded(vec: &[u8]) -> bool {
-        vec[vec.len() - MAGIC_SIZE..] == Self::MAGIC
+        Ok(EncryptedMeta::new(nonce, filename_str))
     }
 }
 
-///////////////////////////////////////////////////////////////////
-///////////////////////////    TESTS    ///////////////////////////
-///////////////////////////////////////////////////////////////////
+impl TryInto<EncryptedMeta> for &Vec<u8> {
+    type Error = error::Error;
 
-#[cfg(test)]
-mod tests {
-    use crate::error;
-    use crate::meta::EncryptedMeta;
-
-    const NONCE: [u8; 19] = [
-        10u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 0u8, 1u8, 2u8, 3u8,
-        4u8, 5u8, 6u8, 7u8, 8u8,
-    ];
-
-    #[test]
-    fn to_vec() {
-        let meta = EncryptedMeta::new(&NONCE, "file.txt");
-
-        assert_eq!(
-            meta.to_vec().as_slice(),
-            b"\x00file.txt\x00\x0A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED",
-        );
-    }
-
-    #[test]
-    fn from_vec() -> error::Result<()> {
-        let a = b"\x00file.txt\x00\x0A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x00\x01\x02\x03\x04\x05\x06\x07\x08RFED".to_vec();
-        let result = EncryptedMeta::from_vec(&a)?;
-
-        assert_eq!(
-            result,
-            EncryptedMeta::new(&NONCE, "file.txt"),
-        );
-
-        Ok(())
+    fn try_into(self) -> Result<EncryptedMeta, Self::Error> {
+        self.as_slice().try_into()
     }
 }

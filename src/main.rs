@@ -187,6 +187,11 @@ fn main() -> error::Result<()> {
 
     println!("Job done!");
 
+    if preview {
+        let mut buffer: String = String::new();
+        io::stdin().read_line(&mut buffer)?;
+    }
+
     Ok(())
 }
 

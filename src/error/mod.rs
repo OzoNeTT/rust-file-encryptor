@@ -36,10 +36,10 @@ struct Custom {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ErrorKind {
     FileNotFound,
-    InvalidData,
     WrongPassword,
     FileTooSmall,
     FileInvalidMagic,
+    FileMetaDecodeError,
     IOError,
     OtherError,
 }
@@ -49,9 +49,9 @@ impl ErrorKind {
         use ErrorKind::*;
         match self {
             FileNotFound => "File not found",
-            InvalidData => "Invalid data",
             WrongPassword => "Wrong password",
             FileTooSmall => "File is too small",
+            FileMetaDecodeError => "File's meta decode error",
             FileInvalidMagic => "Invalid file magic",
             IOError => "IO Error",
             OtherError => "Unknown error",
@@ -93,7 +93,7 @@ impl From<aead::Error> for Error {
     fn from(err: aead::Error) -> Self {
         Error {
             repr: Repr::Custom(Box::from(Custom {
-                kind: ErrorKind::InvalidData,
+                kind: ErrorKind::WrongPassword,
                 error: Box::from(err),
             })),
         }

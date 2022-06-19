@@ -17,6 +17,9 @@ pub fn try_parse(source_file: &Path) -> error::Result<bool> {
     let valid_enc: bool;
     {
         let mut file = File::open(source_file)?;
+
+        // TODO: buffered read the end of the file
+        // (do not read all file)
         file.read_to_end(&mut buff)?;
         valid_enc = EncryptedMeta::is_valid_encoded(&buff);
     }
@@ -29,7 +32,7 @@ pub fn get_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
     let mut file = File::open_read_only(source_file)?;
     file.read_to_end(&mut buff)?;
 
-    EncryptedMeta::from_vec(&buff)
+    (&buff).try_into()
 }
 
 #[allow(dead_code)]
@@ -39,8 +42,7 @@ pub fn get_and_remove_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
 
     let file = File::open_write(source_file)?;
     let new_len = file.metadata()?.len() - meta_size as u64;
-    file.set_len(new_len)
-        .expect("Bruh bruh bruh");
+    file.set_len(new_len)?;
 
     Ok(meta_info)
 }
@@ -70,7 +72,7 @@ pub fn decrypt_file(
     key: &[u8; 32],
     nonce: &[u8],
     preview: bool,
-) -> error::Result<()> {
+) -> Result<(), error::Error> {
     let mut source_file = File::open_read_only(source_file_path)?;
     let mut dist_file: Box<dyn Write> = if preview {
         Box::new(io::stdout())
@@ -118,7 +120,7 @@ pub fn decrypt_file(
 
         if glob_len >= file_size_nometa {
             let ciphertext = stream_decryptor.decrypt_last(slice)?;
-            io::stdout().write_all(&ciphertext)?;
+            dist_file.write_all(&ciphertext)?;
             break;
         } else {
             let ciphertext = stream_decryptor.decrypt_next(slice)?;
@@ -134,7 +136,7 @@ pub fn encrypt_file(
     dist_file_path: &Path,
     key: &[u8; 32],
     nonce: &[u8],
-) -> error::Result<()> {
+) -> Result<(), error::Error> {
     let mut source_file = File::open(source_file_path)?;
 
     {
