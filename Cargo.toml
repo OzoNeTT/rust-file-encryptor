@@ -1,5 +1,5 @@
 [package]
-name = "rust-file-encryptor"
+name = "file_encryptor"
 version = "0.1.0"
 authors = ["OzoNeTT <gpoff12@mail.ru>", "Anatolii Titov <a@toliak.ru>"]
 edition = "2021"
@@ -19,3 +19,4 @@ sha2 = "0.10.2"
 sha256 = "1.0.3"
 hex-literal = "0.3.4"
 rpassword = "6.0.1"
+assert_fs = "0.10"

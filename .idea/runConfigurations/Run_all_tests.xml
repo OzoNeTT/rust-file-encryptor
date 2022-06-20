@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run all tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" folderName="Tests">
-    <option name="command" value="test --package rust-file-encryptor --bin rust-file-encryptor" />
+    <option name="command" value="test" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
