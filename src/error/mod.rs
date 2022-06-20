@@ -36,6 +36,7 @@ struct Custom {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ErrorKind {
     FileNotFound,
+    FileAlreadyExist,
     WrongPassword,
     FileTooSmall,
     FileInvalidMagic,
@@ -49,6 +50,7 @@ impl ErrorKind {
         use ErrorKind::*;
         match self {
             FileNotFound => "File not found",
+            FileAlreadyExist => "File already exist",
             WrongPassword => "Wrong password",
             FileTooSmall => "File is too small",
             FileMetaDecodeError => "File's meta decode error",
@@ -167,6 +169,13 @@ impl Error {
     pub fn new_file_not_found(filename: &str) -> Self {
         Self::new(
             ErrorKind::FileNotFound,
+            format!("File '{}' not found", filename),
+        )
+    }
+
+    pub fn file_already_exist(filename: &str) -> Self {
+        Self::new(
+            ErrorKind::FileAlreadyExist,
             format!("File '{}' not found", filename),
         )
     }

@@ -139,6 +139,12 @@ pub fn encrypt_file(
 ) -> Result<(), error::Error> {
     let mut source_file = File::open(source_file_path)?;
 
+    if dist_file_path.exists() {
+        return Err(error::Error::file_already_exist(
+            dist_file_path.to_str().unwrap_or(""),
+        ));
+    }
+
     {
         // Truncate the file
         let dist_file = File::open_or_create(dist_file_path)?;
