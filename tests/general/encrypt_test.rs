@@ -16,7 +16,7 @@ fn setup() -> io::Result<()> {
 }
 
 #[test]
-fn test_common_encrypt() {
+fn test_common() {
     setup().expect("");
 
     let temp = assert_fs::TempDir::new().expect("");
@@ -25,16 +25,14 @@ fn test_common_encrypt() {
 
     let raw_file = temp.child("to_enc.txt");
     let key_hash = file_encryptor::get_hash("amongus").expect("");
-    file_encryptor::try_encrypt(
-        (&raw_file).path(),
-        key_hash.clone(),
-    )
+    file_encryptor::try_encrypt((&raw_file).path(), key_hash.clone())
         .expect("TODO: panic message");
 
     fs::remove_file(raw_file.path()).expect("");
 
     let enc_file = temp.child("to_enc.enc");
-    file_encryptor::try_decrypt(enc_file.path(), key_hash.clone(), false).expect("TODO: panic message");
+    file_encryptor::try_decrypt(enc_file.path(), key_hash.clone(), false)
+        .expect("TODO: panic message");
 
     let mut buffer = Vec::<u8>::with_capacity(512);
     File::open(
@@ -42,14 +40,13 @@ fn test_common_encrypt() {
             .join(ROOT_FILE_DIR)
             .join("to_enc.txt"),
     )
-        .expect("")
-        .read_to_end(&mut buffer)
-        .expect("");
+    .expect("")
+    .read_to_end(&mut buffer)
+    .expect("");
 
     let mut expected_buff = Vec::<u8>::with_capacity(512);
-    File::open(
-        temp.child("to_enc.txt").path()
-    ).expect("")
+    File::open(temp.child("to_enc.txt").path())
+        .expect("")
         .read_to_end(&mut expected_buff)
         .expect("");
 
