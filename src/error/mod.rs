@@ -53,7 +53,7 @@ impl ErrorKind {
             FileAlreadyExist => "File already exist",
             WrongPassword => "Wrong password",
             FileTooSmall => "File is too small",
-            FileMetaDecodeError => "File's meta decode error",
+            FileMetaDecodeError => "File's meta_raw decode error",
             FileInvalidMagic => "Invalid file magic",
             IOError => "IO Error",
             OtherError => "Unknown error",

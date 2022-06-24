@@ -1,6 +1,6 @@
 // use core::slice::SlicePattern;
 
-use crate::meta::EncryptedMeta;
+use crate::meta_enc::EncryptedMeta;
 use crate::{error, error::ErrorKind, OpenOrCreate};
 use chacha20poly1305::{
     aead::{stream, NewAead},

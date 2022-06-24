@@ -6,10 +6,12 @@ use arrayref::array_ref;
 use std::str;
 use std::str::from_utf8;
 
+/*
 pub const MAGIC_SIZE: usize = 4usize;
 pub const NONCE_SIZE: usize = 19usize;
 
 const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
+*/
 
 /// Meta-information about file encryption
 ///
@@ -36,10 +38,10 @@ const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
 pub struct EncryptedMeta {
     /// Magic number.
     /// Is being used for determining encrypted file
-    pub magic: [u8; MAGIC_SIZE],
+    // pub magic: [u8; MAGIC_SIZE],
 
     /// Public number for a cipher
-    pub nonce: [u8; NONCE_SIZE],
+    //pub nonce: [u8; NONCE_SIZE],
 
     /// Original filename
     pub filename: String,
@@ -47,25 +49,33 @@ pub struct EncryptedMeta {
 
 impl PartialEq<Self> for EncryptedMeta {
     fn eq(&self, other: &Self) -> bool {
-        self.magic == other.magic
-            && self.nonce == other.nonce
-            && self.filename == other.filename
+        //self.magic == other.magic
+            //&& self.nonce == other.nonce
+            //&&
+            self.filename == other.filename
     }
 }
 
 impl EncryptedMeta {
     pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
 
-    pub fn new(nonce: &[u8; 19], filename: &str) -> Self {
+    pub fn new(
+    //    nonce: &[u8; 19],
+        filename: &str
+    ) -> Self {
         Self {
-            magic: EncryptedMeta::MAGIC,
+            //magic: EncryptedMeta::MAGIC,
             filename: filename.to_string(),
-            nonce: *nonce,
+            //nonce: *nonce,
         }
     }
 
     pub fn len(&self) -> usize {
-        MAGIC_SIZE + self.filename.len() + NONCE_SIZE + 2
+
+        //MAGIC_SIZE +
+            self.filename.len() +
+            //NONCE_SIZE +
+            2
     }
 
     pub fn is_empty(&self) -> bool {
@@ -75,10 +85,10 @@ impl EncryptedMeta {
     pub fn to_vec(&self) -> Vec<u8> {
         vec![0u8]
             .into_iter()
-            .chain(self.filename.bytes())
+            //.chain(self.magic)
+            //.chain(self.nonce)
             .chain([0u8])
-            .chain(self.nonce)
-            .chain(self.magic)
+            .chain(self.filename.bytes())
             .collect::<Vec<u8>>()
     }
 
@@ -86,7 +96,7 @@ impl EncryptedMeta {
         if vec.len() <= META_MIN_SIZE {
             false
         } else {
-            vec[vec.len() - MAGIC_SIZE..] == Self::MAGIC
+            vec[..MAGIC_SIZE] == Self::MAGIC
         }
     }
 }
@@ -110,15 +120,11 @@ impl TryInto<EncryptedMeta> for &[u8] {
 
         let filename = self
             .iter()
-            .rev()
             .skip(MAGIC_SIZE + NONCE_SIZE + 1) // +one zero char
             .map_while(|c| match *c != b'\x00' {
                 true => Some(*c),
                 false => None,
             })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
             .collect::<Vec<_>>();
 
         let filename_str = from_utf8(filename.as_slice()).map_err(|e| {

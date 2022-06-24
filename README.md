@@ -26,6 +26,7 @@ ARGS:
 OPTIONS:
     -h, --help         Print help information
     -k, --key <KEY>    Key
+    -p, --preview      Preview-only mode
         --keep         Do not delete original file
 ```
 
