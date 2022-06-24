@@ -2,6 +2,7 @@
   push:
     branches:
       - '*'
+      - 'feature/*'
   pull_request: null
 
 jobs:
