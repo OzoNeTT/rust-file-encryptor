@@ -15,6 +15,7 @@ pub fn try_parse(source_file: &Path) -> error::Result<bool> {
     let mut buff = vec![];
 
     let valid_enc: bool;
+
     {
         let mut file = File::open(source_file)?;
 
@@ -23,10 +24,11 @@ pub fn try_parse(source_file: &Path) -> error::Result<bool> {
         file.read_to_end(&mut buff)?;
         valid_enc = EncryptedMeta::is_valid_encoded(&buff);
     }
+
     Ok(valid_enc)
 }
 
-pub fn get_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
+pub fn get_raw_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
     let mut buff = vec![];
 
     let mut file = File::open_read_only(source_file)?;
@@ -47,20 +49,11 @@ pub fn get_and_remove_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
     Ok(meta_info)
 }
 
-pub fn append_meta(
-    nonce: &[u8; 19],
-    original_file: &Path,
-    source_file: &Path,
+pub fn add_raw_meta(
+    meta: EncryptedMeta,
+    target_file: &mut dyn Write,
 ) -> error::Result<()> {
-    let filename = original_file
-        .file_name()
-        .ok_or_else(|| -> error::Error { ErrorKind::OtherError.into() })?
-        .to_str()
-        .ok_or_else(|| -> error::Error { ErrorKind::OtherError.into() })?;
-
-    let meta_info = EncryptedMeta::new(nonce, filename);
-    let mut file = File::open_append(source_file)?;
-    file.write_all(meta_info.to_vec().as_slice())?;
+    target_file.write_all(meta.to_vec().as_slice())?;
 
     Ok(())
 }
@@ -79,6 +72,12 @@ pub fn decrypt_file(
     } else {
         Box::new(File::open_or_create(dist_file_path)?)
     };
+
+    if dist_file_path.exists() {
+        return Err(error::Error::file_already_exist(
+            dist_file_path.to_str().unwrap_or(""),
+        ));
+    }
 
     let aead = XChaCha20Poly1305::new(key.as_ref().into());
     let mut stream_decryptor =
@@ -132,26 +131,27 @@ pub fn decrypt_file(
 }
 
 pub fn encrypt_file(
-    source_file_path: &Path,
-    dist_file_path: &Path,
+    source: &mut dyn io::Read,
+    target: &mut dyn io::Write,
     key: &[u8; 32],
     nonce: &[u8],
+    enc_meta: &EncryptedMeta,
 ) -> Result<(), error::Error> {
-    let mut source_file = File::open(source_file_path)?;
+    // let mut source_file = File::open(source_file_path)?;
+    //
+    // if dist_file_path.exists() {
+    //     return Err(error::Error::file_already_exist(
+    //         dist_file_path.to_str().unwrap_or(""),
+    //     ));
+    // }
 
-    if dist_file_path.exists() {
-        return Err(error::Error::file_already_exist(
-            dist_file_path.to_str().unwrap_or(""),
-        ));
-    }
+    // {
+    // Truncate the file
+    // let dist_file = File::open_or_create(dist_file_path)?;
+    // dist_file.set_len(0)?;
+    // }
 
-    {
-        // Truncate the file
-        let dist_file = File::open_or_create(dist_file_path)?;
-        dist_file.set_len(0)?;
-    }
-
-    let mut dist_file = File::open_or_create(dist_file_path)?;
+    // let mut dist_file = File::open_or_create(dist_file_path)?;
 
     let aead = XChaCha20Poly1305::new(key.as_ref().into());
 
@@ -163,20 +163,21 @@ pub fn encrypt_file(
     let mut glob_len = 0;
     let file_len = source_file.metadata()?.len() as usize;
 
+    target.write_all(&stream_encryptor.encrypt_next(enc_meta.to_vec())?)?;
+
     loop {
         let mut buffer = [0u8; BUFFER_LEN];
-        let read_count = source_file.read(&mut buffer)?;
+        let read_count = source.read(&mut buffer)?;
         glob_len += read_count;
         println!(
             "Encrypting {:?}/{:?}",
-            glob_len, file_len
+            glob_len, file_len,
         );
 
         if read_count == BUFFER_LEN {
             let ciphertext =
                 stream_encryptor.encrypt_next(buffer.as_slice())?;
 
-            // println!("Ciphertext length: {}", ciphertext.len());
             dist_file.write_all(&ciphertext)?;
         } else {
             let ciphertext =

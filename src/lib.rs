@@ -12,7 +12,7 @@ use std::path::Path;
 
 use rand::{thread_rng, Rng};
 
-use crate::encryption::{append_meta, decrypt_file, encrypt_file, get_meta};
+use crate::encryption::{add_raw_meta, decrypt_file, encrypt_file, get_meta};
 use crate::error::ErrorKind::WrongPassword;
 use crate::file::OpenOrCreate;
 use file::GetFileDirectory;
@@ -64,8 +64,7 @@ pub fn try_decrypt(
         &hash_from_key,
         &nonce,
         preview,
-    )
-    .map_err(|e| error::Error::new(WrongPassword, e))?;
+    )?;
 
     Ok(())
 }
@@ -90,10 +89,9 @@ pub fn try_encrypt(
             target_file_path,
             &hash_from_key,
             nonce,
-        )
-        .map_err(|e| error::Error::new(WrongPassword, e))?;
+        )?;
 
-        append_meta(nonce, file_path, target_file_path)?;
+        add_raw_meta(nonce, file_path, target_file_path)?;
     }
     Ok(())
 }

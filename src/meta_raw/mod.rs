@@ -33,7 +33,7 @@ const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
 /// 0x20 1F 20 21 22 23 24 52 46 45 44 -  -  -  -  -  -
 /// ```
 #[derive(Debug)]
-pub struct EncryptedMeta {
+pub struct RawMeta {
     /// Magic number.
     /// Is being used for determining encrypted file
     pub magic: [u8; MAGIC_SIZE],
@@ -45,7 +45,7 @@ pub struct EncryptedMeta {
     //pub filename: String,
 }
 
-impl PartialEq<Self> for EncryptedMeta {
+impl PartialEq<Self> for RawMeta {
     fn eq(&self, other: &Self) -> bool {
         self.magic == other.magic
             && self.nonce == other.nonce
@@ -53,7 +53,7 @@ impl PartialEq<Self> for EncryptedMeta {
     }
 }
 
-impl EncryptedMeta {
+impl RawMeta {
     pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
 
     pub fn new(nonce: &[u8; 19],
@@ -96,14 +96,14 @@ impl EncryptedMeta {
     }
 }
 
-impl TryInto<EncryptedMeta> for &[u8] {
+impl TryInto<RawMeta> for &[u8] {
     type Error = error::Error;
 
-    fn try_into(self) -> Result<EncryptedMeta, Self::Error> {
+    fn try_into(self) -> Result<RawMeta, Self::Error> {
         if self.len() <= META_MIN_SIZE {
             return Err(ErrorKind::FileTooSmall.into());
         }
-        if self[self.len() - MAGIC_SIZE..] != EncryptedMeta::MAGIC {
+        if self[self.len() - MAGIC_SIZE..] != RawMeta::MAGIC {
             return Err(ErrorKind::FileInvalidMagic.into());
         }
 
@@ -129,15 +129,17 @@ impl TryInto<EncryptedMeta> for &[u8] {
             "Filename {:?}",
             from_utf8(filename.as_slice())
         );
-
-        Ok(EncryptedMeta::new(nonce, filename_str))
+        */
+        Ok(RawMeta::new(nonce,
+        //                filename_str
+        ))
     }
 }
 
-impl TryInto<EncryptedMeta> for &Vec<u8> {
+impl TryInto<RawMeta> for &Vec<u8> {
     type Error = error::Error;
 
-    fn try_into(self) -> Result<EncryptedMeta, Self::Error> {
+    fn try_into(self) -> Result<RawMeta, Self::Error> {
         self.as_slice().try_into()
     }
 }
