@@ -40,6 +40,7 @@ pub enum ErrorKind {
     WrongPassword,
     FileTooSmall,
     FileInvalidMagic,
+    FileInvalidCipherId,
     FileMetaDecodeError,
     IOError,
     OtherError,
@@ -55,6 +56,7 @@ impl ErrorKind {
             FileTooSmall => "File is too small",
             FileMetaDecodeError => "File's meta_raw decode error",
             FileInvalidMagic => "Invalid file magic",
+            FileInvalidCipherId => "Invalid file cipher ID",
             IOError => "IO Error",
             OtherError => "Unknown error",
         }

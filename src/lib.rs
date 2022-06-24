@@ -4,6 +4,7 @@ pub mod error;
 pub mod file;
 pub mod meta_raw;
 pub mod meta_enc;
+pub mod cipher;
 
 use arrayref::array_ref;
 use std::convert::TryInto;

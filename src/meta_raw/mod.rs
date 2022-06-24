@@ -2,6 +2,7 @@
 mod tests;
 
 use crate::{error, error::ErrorKind};
+use crate::cipher::CipherKind;
 use arrayref::array_ref;
 use std::str;
 use std::str::from_utf8;
@@ -38,29 +39,28 @@ pub struct RawMeta {
     /// Is being used for determining encrypted file
     pub magic: [u8; MAGIC_SIZE],
 
+    /// Cipher type
+    pub cipher_kind: CipherKind,
+
     /// Public number for a cipher
     pub nonce: [u8; NONCE_SIZE],
-
-    /// Original filename
-    //pub filename: String,
 }
 
 impl PartialEq<Self> for RawMeta {
     fn eq(&self, other: &Self) -> bool {
         self.magic == other.magic
             && self.nonce == other.nonce
-            //&& self.filename == other.filename
     }
 }
 
 impl RawMeta {
     pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
 
-    pub fn new(nonce: &[u8; 19],
-               //filename: &str
+    pub fn new(nonce: &[u8; 19], cipher_kind: CipherKind,
     ) -> Self {
         Self {
             magic: RawMeta::MAGIC,
+            cipher_kind,
             //filename: filename.to_string(),
             nonce: *nonce,
         }
@@ -68,7 +68,7 @@ impl RawMeta {
 
     pub fn len(&self) -> usize {
         MAGIC_SIZE +
-            //self.filename.len() +
+            1 +
             NONCE_SIZE + 2
     }
 
@@ -82,6 +82,7 @@ impl RawMeta {
             .into_iter()
             .chain(self.magic)
             .chain(self.nonce)
+            .chain([self.cipher_kind.to_u8()])
             //.chain([0u8])
             //.chain(self.filename.bytes())
             .collect::<Vec<u8>>()
@@ -108,10 +109,12 @@ impl TryInto<RawMeta> for &[u8] {
         }
 
         let nonce = array_ref![
-            self[self.len() - (MAGIC_SIZE + NONCE_SIZE)..self.len() - 4],
+            self[MAGIC_SIZE..MAGIC_SIZE+NONCE_SIZE],
             0,
-            19
+            NONCE_SIZE
         ];
+
+        let cipher: CipherKind = self[MAGIC_SIZE+NONCE_SIZE+1].try_into()?;
 
         /*let filename = self
             .iter()
@@ -130,7 +133,7 @@ impl TryInto<RawMeta> for &[u8] {
             from_utf8(filename.as_slice())
         );
         */
-        Ok(RawMeta::new(nonce,
+        Ok(RawMeta::new(nonce,cipher
         //                filename_str
         ))
     }

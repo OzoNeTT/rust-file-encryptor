@@ -10,8 +10,8 @@ File encryptor and decryptor based on ChaCha20 and Poly1305.
 There is no need to specify options like **Decrypt** or **Encrypt**,
 because they are determined automatically using **MAGIC** number.
 
-Also there is no filename dependence, because the original filename
-of encrypted binary is saved.
+Also, there is no filename dependence, 
+because the original filename is being saved inside the encrypted binary.
 
 
 ## Usage
