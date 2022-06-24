@@ -68,6 +68,8 @@ impl EncryptedMeta {
         MAGIC_SIZE + self.filename.len() + NONCE_SIZE + 2
     }
 
+    pub fn is_empty(&self) -> bool { self.filename.len() == 0 }
+
     pub fn to_vec(&self) -> Vec<u8> {
         vec![0u8]
             .into_iter()
