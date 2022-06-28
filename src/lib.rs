@@ -1,10 +1,10 @@
+pub mod cipher;
 pub mod encryption;
 #[allow(dead_code)]
 pub mod error;
 pub mod file;
-pub mod meta_raw;
 pub mod meta_enc;
-pub mod cipher;
+pub mod meta_raw;
 
 use arrayref::array_ref;
 use std::convert::TryInto;

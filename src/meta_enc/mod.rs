@@ -1,3 +1,4 @@
+mod parser;
 #[cfg(test)]
 mod tests;
 
@@ -50,32 +51,25 @@ pub struct EncryptedMeta {
 impl PartialEq<Self> for EncryptedMeta {
     fn eq(&self, other: &Self) -> bool {
         //self.magic == other.magic
-            //&& self.nonce == other.nonce
-            //&&
-            self.filename == other.filename
+        //&& self.nonce == other.nonce
+        //&&
+        self.filename == other.filename
     }
 }
 
 impl EncryptedMeta {
-    pub const MAGIC: [u8; MAGIC_SIZE] = [0x52, 0x46, 0x45, 0x44];
-
-    pub fn new(
-    //    nonce: &[u8; 19],
-        filename: &str
-    ) -> Self {
+    pub fn new(filename: &str) -> Self {
         Self {
-            //magic: EncryptedMeta::MAGIC,
             filename: filename.to_string(),
-            //nonce: *nonce,
         }
     }
 
     pub fn len(&self) -> usize {
+        2 + self.filename.len() + 1
+    }
 
-        //MAGIC_SIZE +
-            self.filename.len() +
-            //NONCE_SIZE +
-            2
+    pub fn content_len(&self) -> u16 {
+        self.filename.len().into() + 1
     }
 
     pub fn is_empty(&self) -> bool {
@@ -85,19 +79,9 @@ impl EncryptedMeta {
     pub fn to_vec(&self) -> Vec<u8> {
         vec![0u8]
             .into_iter()
-            //.chain(self.magic)
-            //.chain(self.nonce)
-            .chain([0u8])
+            .chain(self.content_len())
             .chain(self.filename.bytes())
             .collect::<Vec<u8>>()
-    }
-
-    pub fn is_valid_encoded(vec: &[u8]) -> bool {
-        if vec.len() <= META_MIN_SIZE {
-            false
-        } else {
-            vec[..MAGIC_SIZE] == Self::MAGIC
-        }
     }
 }
 

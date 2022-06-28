@@ -29,6 +29,11 @@ impl TryInto<CipherKind> for u8 {
     type Error = error::Error;
 
     fn try_into(self) -> Result<CipherKind, Self::Error> {
-        match self { _ => Err(Self::Error::new(FileInvalidCipherId, format!("Cipher ID {} is invalid", self))) }
+        match self {
+            _ => Err(Self::Error::new(
+                FileInvalidCipherId,
+                format!("Cipher ID {} is invalid", self),
+            )),
+        }
     }
 }

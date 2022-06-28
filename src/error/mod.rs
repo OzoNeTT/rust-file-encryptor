@@ -5,6 +5,7 @@ use chacha20poly1305::aead;
 use core::fmt;
 use std::array::TryFromSliceError;
 use std::{error, io, result};
+use std::str;
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -42,6 +43,9 @@ pub enum ErrorKind {
     FileInvalidMagic,
     FileInvalidCipherId,
     FileMetaDecodeError,
+    EncryptedMetaIsEmpty,
+    EncryptedMetaDecodeError,
+    Utf8Error,
     IOError,
     OtherError,
 }
@@ -57,6 +61,9 @@ impl ErrorKind {
             FileMetaDecodeError => "File's meta_raw decode error",
             FileInvalidMagic => "Invalid file magic",
             FileInvalidCipherId => "Invalid file cipher ID",
+            EncryptedMetaIsEmpty => "Encrypted meta is empty",
+            EncryptedMetaDecodeError => "Encrypted meta decode error",
+            Utf8Error => "Utf8 Error",
             IOError => "IO Error",
             OtherError => "Unknown error",
         }
@@ -98,6 +105,17 @@ impl From<aead::Error> for Error {
         Error {
             repr: Repr::Custom(Box::from(Custom {
                 kind: ErrorKind::WrongPassword,
+                error: Box::from(err),
+            })),
+        }
+    }
+}
+
+impl From<str::Utf8Error> for Error {
+    fn from(err: str::Utf8Error) -> Self {
+        Error {
+            repr: Repr::Custom(Box::from(Custom {
+                kind: ErrorKind::Utf8Error,
                 error: Box::from(err),
             })),
         }
