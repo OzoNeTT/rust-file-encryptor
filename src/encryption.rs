@@ -1,7 +1,8 @@
 // use core::slice::SlicePattern;
 
 use crate::meta_enc::EncryptedMeta;
-use crate::{error, error::ErrorKind, OpenOrCreate};
+use crate::meta_raw::RawMeta;
+use crate::{error, OpenOrCreate};
 use chacha20poly1305::{
     aead::{stream, NewAead},
     XChaCha20Poly1305,
@@ -14,18 +15,17 @@ use std::path::Path;
 pub fn try_parse(source_file: &Path) -> error::Result<bool> {
     let mut buff = vec![];
 
-    let valid_enc: bool;
-
     {
         let mut file = File::open(source_file)?;
 
         // TODO: buffered read the end of the file
         // (do not read all file)
         file.read_to_end(&mut buff)?;
-        valid_enc = EncryptedMeta::is_valid_encoded(&buff);
+        return match TryInto::<RawMeta>::try_into(&buff).ok() {
+            Some(..) => Ok(true),
+            None => Ok(false),
+        };
     }
-
-    Ok(valid_enc)
 }
 
 pub fn get_raw_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
@@ -37,20 +37,8 @@ pub fn get_raw_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
     (&buff).try_into()
 }
 
-#[allow(dead_code)]
-pub fn get_and_remove_meta(source_file: &Path) -> error::Result<EncryptedMeta> {
-    let meta_info = get_meta(source_file)?;
-    let meta_size = meta_info.len();
-
-    let file = File::open_write(source_file)?;
-    let new_len = file.metadata()?.len() - meta_size as u64;
-    file.set_len(new_len)?;
-
-    Ok(meta_info)
-}
-
 pub fn add_raw_meta(
-    meta: EncryptedMeta,
+    meta: &RawMeta,
     target_file: &mut dyn Write,
 ) -> error::Result<()> {
     target_file.write_all(meta.to_vec().as_slice())?;
@@ -74,7 +62,7 @@ pub fn decrypt_file(
     };
 
     if dist_file_path.exists() {
-        return Err(error::Error::file_already_exist(
+        return Err(error::Error::new_file_already_exist(
             dist_file_path.to_str().unwrap_or(""),
         ));
     }
@@ -132,6 +120,7 @@ pub fn decrypt_file(
 
 pub fn encrypt_file(
     source: &mut dyn io::Read,
+    source_len: usize,
     target: &mut dyn io::Write,
     key: &[u8; 32],
     nonce: &[u8],
@@ -161,9 +150,10 @@ pub fn encrypt_file(
     const BUFFER_LEN: usize = 500;
 
     let mut glob_len = 0;
-    let file_len = source_file.metadata()?.len() as usize;
 
-    target.write_all(&stream_encryptor.encrypt_next(enc_meta.to_vec())?)?;
+    let meta_enc =
+        stream_encryptor.encrypt_next(enc_meta.to_vec().as_slice())?;
+    target.write_all(&meta_enc)?;
 
     loop {
         let mut buffer = [0u8; BUFFER_LEN];
@@ -171,18 +161,18 @@ pub fn encrypt_file(
         glob_len += read_count;
         println!(
             "Encrypting {:?}/{:?}",
-            glob_len, file_len,
+            glob_len, source_len,
         );
 
         if read_count == BUFFER_LEN {
             let ciphertext =
                 stream_encryptor.encrypt_next(buffer.as_slice())?;
 
-            dist_file.write_all(&ciphertext)?;
+            target.write_all(&ciphertext)?;
         } else {
             let ciphertext =
                 stream_encryptor.encrypt_last(&buffer[..read_count])?;
-            dist_file.write_all(&ciphertext)?;
+            target.write_all(&ciphertext)?;
             break;
         }
     }

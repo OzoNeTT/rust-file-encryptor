@@ -1,7 +1,10 @@
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
+mod parser;
 
 use crate::cipher::CipherKind;
+use crate::meta_raw::parser::MetaRawDynamicParser;
+use crate::utils::DynamicParser;
 use crate::{error, error::ErrorKind};
 use arrayref::array_ref;
 
@@ -57,7 +60,6 @@ impl RawMeta {
         Self {
             magic: RawMeta::MAGIC,
             cipher_kind,
-            //filename: filename.to_string(),
             nonce: *nonce,
         }
     }
@@ -95,25 +97,10 @@ impl TryInto<RawMeta> for &[u8] {
     type Error = error::Error;
 
     fn try_into(self) -> Result<RawMeta, Self::Error> {
-        if self.len() <= META_MIN_SIZE {
-            return Err(ErrorKind::FileTooSmall.into());
-        }
-        if self[self.len() - MAGIC_SIZE..] != RawMeta::MAGIC {
-            return Err(ErrorKind::FileInvalidMagic.into());
-        }
+        let mut parser = MetaRawDynamicParser::new();
+        parser.parse_next(&self)?;
 
-        let nonce = array_ref![
-            self[MAGIC_SIZE..MAGIC_SIZE + NONCE_SIZE],
-            0,
-            NONCE_SIZE
-        ];
-
-        let cipher: CipherKind =
-            self[MAGIC_SIZE + NONCE_SIZE + 1].try_into()?;
-
-        Ok(RawMeta::new(
-            nonce, cipher, //                filename_str
-        ))
+        parser.to_raw_meta()
     }
 }
 

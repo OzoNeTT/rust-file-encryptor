@@ -4,8 +4,8 @@ mod tests;
 use chacha20poly1305::aead;
 use core::fmt;
 use std::array::TryFromSliceError;
-use std::{error, io, result};
 use std::str;
+use std::{error, io, result};
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -44,7 +44,11 @@ pub enum ErrorKind {
     FileInvalidCipherId,
     FileMetaDecodeError,
     EncryptedMetaIsEmpty,
+    EncryptedMetaIsNotReady,
     EncryptedMetaDecodeError,
+    RawMetaIsEmpty,
+    RawMetaIsNotReady,
+    RawMetaDecodeError,
     Utf8Error,
     IOError,
     OtherError,
@@ -62,7 +66,11 @@ impl ErrorKind {
             FileInvalidMagic => "Invalid file magic",
             FileInvalidCipherId => "Invalid file cipher ID",
             EncryptedMetaIsEmpty => "Encrypted meta is empty",
+            EncryptedMetaIsNotReady => "Encrypted meta is not ready",
             EncryptedMetaDecodeError => "Encrypted meta decode error",
+            RawMetaIsEmpty => "Raw meta is empty",
+            RawMetaIsNotReady => "Raw meta is not ready",
+            RawMetaDecodeError => "Raw meta decode error",
             Utf8Error => "Utf8 Error",
             IOError => "IO Error",
             OtherError => "Unknown error",
@@ -193,10 +201,29 @@ impl Error {
         )
     }
 
-    pub fn file_already_exist(filename: &str) -> Self {
+    pub fn new_file_already_exist(filename: &str) -> Self {
         Self::new(
             ErrorKind::FileAlreadyExist,
             format!("File '{}' not found", filename),
+        )
+    }
+
+    pub fn new_encrypted_meta_size_mismatch(
+        expected_size: u16,
+        real_size: u16,
+    ) -> Self {
+        Self::new(
+            ErrorKind::EncryptedMetaDecodeError,
+            format!(
+                "Raw meta size {}, expected: {}, real: {}",
+                if expected_size > real_size {
+                    "underflow"
+                } else {
+                    "overflow"
+                },
+                expected_size,
+                real_size,
+            ),
         )
     }
 }

@@ -30,6 +30,8 @@ impl TryInto<CipherKind> for u8 {
 
     fn try_into(self) -> Result<CipherKind, Self::Error> {
         match self {
+            0 => Ok(CipherKind::ChaCha20Poly1305),
+            1 => Ok(CipherKind::AesGcm),
             _ => Err(Self::Error::new(
                 FileInvalidCipherId,
                 format!("Cipher ID {} is invalid", self),

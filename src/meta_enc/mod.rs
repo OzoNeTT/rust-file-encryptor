@@ -1,7 +1,9 @@
 mod parser;
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
+use crate::meta_enc::parser::MetaEncryptedDynamicParser;
+use crate::utils::DynamicParser;
 use crate::{error, error::ErrorKind};
 use arrayref::array_ref;
 use std::str;
@@ -69,7 +71,7 @@ impl EncryptedMeta {
     }
 
     pub fn content_len(&self) -> u16 {
-        self.filename.len().into() + 1
+        (self.filename.len() as u16) + 1
     }
 
     pub fn is_empty(&self) -> bool {
@@ -79,7 +81,7 @@ impl EncryptedMeta {
     pub fn to_vec(&self) -> Vec<u8> {
         vec![0u8]
             .into_iter()
-            .chain(self.content_len())
+            .chain(self.content_len().to_le_bytes())
             .chain(self.filename.bytes())
             .collect::<Vec<u8>>()
     }
@@ -89,37 +91,10 @@ impl TryInto<EncryptedMeta> for &[u8] {
     type Error = error::Error;
 
     fn try_into(self) -> Result<EncryptedMeta, Self::Error> {
-        if self.len() <= META_MIN_SIZE {
-            return Err(ErrorKind::FileTooSmall.into());
-        }
-        if self[self.len() - MAGIC_SIZE..] != EncryptedMeta::MAGIC {
-            return Err(ErrorKind::FileInvalidMagic.into());
-        }
+        let mut parser = MetaEncryptedDynamicParser::new();
+        parser.parse_next(&self)?;
 
-        let nonce = array_ref![
-            self[self.len() - (MAGIC_SIZE + NONCE_SIZE)..self.len() - 4],
-            0,
-            19
-        ];
-
-        let filename = self
-            .iter()
-            .skip(MAGIC_SIZE + NONCE_SIZE + 1) // +one zero char
-            .map_while(|c| match *c != b'\x00' {
-                true => Some(*c),
-                false => None,
-            })
-            .collect::<Vec<_>>();
-
-        let filename_str = from_utf8(filename.as_slice()).map_err(|e| {
-            error::Error::new(ErrorKind::FileMetaDecodeError, e)
-        })?;
-        println!(
-            "Filename {:?}",
-            from_utf8(filename.as_slice())
-        );
-
-        Ok(EncryptedMeta::new(nonce, filename_str))
+        parser.to_encrypted_meta()
     }
 }
 
