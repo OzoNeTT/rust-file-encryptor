@@ -9,14 +9,17 @@ pub mod utils;
 
 use arrayref::array_ref;
 use std::convert::TryInto;
+use std::ffi::OsStr;
 use std::fs::File;
-use std::iter;
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::{fs, io, iter};
 use std::path::Path;
 
 use rand::{thread_rng, Rng};
 
+use crate::cipher::kind::select_cipher;
 use crate::cipher::CipherKind;
-use crate::encryption::{add_raw_meta, decrypt_file, encrypt_file};
+use crate::encryption::{add_raw_meta, get_raw_meta};
 use crate::error::ErrorKind;
 use crate::file::OpenOrCreate;
 use crate::meta_enc::EncryptedMeta;
@@ -39,43 +42,56 @@ pub fn get_hash(key: &str) -> error::Result<[u8; 32]> {
     Ok(hashed_key)
 }
 
+use std::string::String;
+
 pub fn try_decrypt(
     file_path: &Path,
     hash_from_key: [u8; 32],
     preview: bool,
 ) -> error::Result<()> {
-    //target_file.seek(SeekFrom::Start(MAGIC_STRING.len() as u64))?;
-    // let meta = get_meta(file_path)?;
-    // let nonce = meta.nonce;
-    //
-    // //   .\\filename.txt
-    // //   ./source.\\filename
-    // //   ./source/.\\filename
-    //
-    // let filename = &meta.filename;
-    // //let decrypt_file_path = &file_path.to_owned()
-    // //    .with_file_name(filename);
-    //
-    // let decrypt_file_path = file_path.file_dir()?.join(filename);
-    //
-    // println!(
-    //     "decrypt_file_path: {:?}",
-    //     decrypt_file_path
-    // );
-    // decrypt_file(
-    //     file_path,
-    //     &decrypt_file_path,
-    //     meta.len(),
-    //     // 0,
-    //     &hash_from_key,
-    //     &nonce,
-    //     preview,
-    // )?;
+    let (meta, target_path) = {
+        let target_file_path = &file_path.with_extension(file_path.extension().unwrap_or(OsStr::new("")).to_str().unwrap_or("").to_string() + ".tmp-enc");
 
-    Err(error::Error::new_const(
-        ErrorKind::OtherError,
-        &"Not implemented",
-    ))
+        let mut target: Box<dyn Write> = if preview {
+            Box::from(io::stdout()) as Box<dyn Write>
+        } else {
+            let mut file = File::open_or_create(target_file_path)?;
+
+            Box::from(file) as Box<dyn Write>
+        };
+
+        // TODO: change for buffered reading
+        let raw_meta = get_raw_meta(file_path)?;
+
+        let mut source = File::open_read_only(file_path)?;
+        source.seek(SeekFrom::Current(raw_meta.len() as i64))?;
+
+        let file_len = source.metadata()?.len() as usize;
+        let cipher = select_cipher(raw_meta.cipher_kind, Some(file_len - raw_meta.len()));
+
+        let enc_meta = cipher.decrypt(
+            &mut source,
+            &mut target,
+            &hash_from_key,
+            &raw_meta.nonce,
+        )?;
+
+        (enc_meta, target_file_path.clone())
+    };
+
+    if !preview {
+        let real_target_path = file_path.with_file_name(meta.filename);
+        println!("Target {:?}, real target {:?}", target_path, real_target_path);
+        fs::rename(target_path, real_target_path)?;
+    }
+
+
+    // Err(error::Error::new_const(
+    //     ErrorKind::OtherError,
+    //     &"Not implemented",
+    // ))
+
+    Ok(())
 }
 
 pub fn try_encrypt(
@@ -83,6 +99,8 @@ pub fn try_encrypt(
     hash_from_key: [u8; 32],
 ) -> error::Result<()> {
     let target_file_path = &file_path.with_extension("enc");
+
+    println!("Target file path: {target_file_path:?}");
 
     let mut rng = thread_rng();
     let rand_string = iter::repeat(())
@@ -123,17 +141,18 @@ pub fn try_encrypt(
         );
 
         let raw_meta = RawMeta::new(&nonce, CipherKind::ChaCha20Poly1305);
+        add_raw_meta(&raw_meta, &mut dist_file)?;
 
-        encrypt_file(
+        // println!("File len: {}, raw meta length: {}", file_len, raw_meta.len());
+        let cipher = select_cipher(raw_meta.cipher_kind, Some(file_len));
+
+        cipher.encrypt(
             &mut source_file,
-            file_len,
             &mut dist_file,
             &hash_from_key,
             nonce,
             &enc_meta,
         )?;
-
-        add_raw_meta(&raw_meta, &mut dist_file)?;
     }
     Ok(())
 }

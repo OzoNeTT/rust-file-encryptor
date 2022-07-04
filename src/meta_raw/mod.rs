@@ -1,6 +1,6 @@
 // #[cfg(test)]
 // mod tests;
-mod parser;
+pub mod parser;
 
 use crate::cipher::CipherKind;
 use crate::meta_raw::parser::MetaRawDynamicParser;
@@ -11,7 +11,7 @@ use arrayref::array_ref;
 pub const MAGIC_SIZE: usize = 4usize;
 pub const NONCE_SIZE: usize = 19usize;
 
-const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
+const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 1;
 
 /// Meta-information about file encryption
 ///
@@ -65,7 +65,7 @@ impl RawMeta {
     }
 
     pub fn len(&self) -> usize {
-        MAGIC_SIZE + 1 + NONCE_SIZE + 2
+        MAGIC_SIZE + 1 + NONCE_SIZE
     }
 
     pub fn is_empty(&self) -> bool {
@@ -74,11 +74,11 @@ impl RawMeta {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        vec![0u8]
+        vec![]
             .into_iter()
             .chain(self.magic)
-            .chain(self.nonce)
             .chain([self.cipher_kind.to_u8()])
+            .chain(self.nonce)
             //.chain([0u8])
             //.chain(self.filename.bytes())
             .collect::<Vec<u8>>()

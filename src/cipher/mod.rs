@@ -1,3 +1,5 @@
+pub mod kind;
+
 use crate::error;
 use crate::error::ErrorKind::FileInvalidCipherId;
 

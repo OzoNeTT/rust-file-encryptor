@@ -57,7 +57,6 @@ impl DynamicParser for MetaEncryptedDynamicParser {
                         Some(batch[0] as u16 | ((batch[1] as u16) << 0x8));
 
                     batch_clipped = &batch[2..];
-                    self.filled_size += 2;
                     self.struct_state = DynamicParserState::FilledSize;
                 }
                 DynamicParserState::FilledSize => {

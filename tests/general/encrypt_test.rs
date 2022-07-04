@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
+use file_encryptor::error;
 
 const ROOT_FILE_DIR: &'static str = "tests/general/";
 const TEMP_FILE_DIR: &'static str = "target/tmp";
@@ -16,7 +17,7 @@ fn setup() -> io::Result<()> {
 }
 
 #[test]
-fn test_common() {
+fn test_common() -> error::Result<()> {
     setup().expect("");
 
     let temp = assert_fs::TempDir::new().expect("");
@@ -25,14 +26,15 @@ fn test_common() {
 
     let raw_file = temp.child("to_enc.txt");
     let key_hash = file_encryptor::get_hash("amongus").expect("");
-    file_encryptor::try_encrypt((&raw_file).path(), key_hash.clone())
-        .expect("TODO: panic message");
+    file_encryptor::try_encrypt((&raw_file).path(), key_hash.clone())?;
 
     fs::remove_file(raw_file.path()).expect("");
 
     let enc_file = temp.child("to_enc.enc");
-    file_encryptor::try_decrypt(enc_file.path(), key_hash.clone(), false)
-        .expect("TODO: panic message");
+    let enc_file_path = enc_file.path();
+    println!("enc_file_path {enc_file_path:?}");
+
+    file_encryptor::try_decrypt(enc_file_path, key_hash.clone(), false)?;
 
     let mut buffer = Vec::<u8>::with_capacity(512);
     File::open(
@@ -52,6 +54,7 @@ fn test_common() {
 
     assert_eq!(buffer, expected_buff);
 
-    temp.close()
-        .expect("TODO: panic message");
+    // temp.close()?;
+
+    Ok(())
 }

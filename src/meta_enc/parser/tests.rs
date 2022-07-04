@@ -8,7 +8,7 @@ use std::io::Write;
 #[test]
 fn parse_single_batch() -> error::Result<()> {
     const ARRAY: &[u8] =
-        b"\x3F\x00a_large_file_name with (spaces) and [brackets].txt.fghfghfgh\0";
+        b"\x3D\x00a_large_file_name with (spaces) and [brackets].txt.fghfghfgh\0";
 
     let mut parser = MetaEncryptedDynamicParser::new();
     let array = parser.parse_next(ARRAY)?;
@@ -26,7 +26,7 @@ fn parse_single_batch() -> error::Result<()> {
 #[test]
 fn parse_divided_batch() -> error::Result<()> {
     const ARRAY: [&'static str; 5] = [
-        "\x3F\x00a_l",
+        "\x3D\x00a_l",
         "arge_file_name with ",
         "(spaces) and [brackets",
         "].txt.fghfghfgh",
@@ -66,7 +66,7 @@ fn parse_divided_batch() -> error::Result<()> {
 
 #[test]
 fn parse_size_overflow() -> error::Result<()> {
-    const ARRAY: &[u8] = b"\x08\x00amongus\0asdasdasdasdads";
+    const ARRAY: &[u8] = b"\x06\x00amongus\0asdasdasdasdads";
 
     let mut parser = MetaEncryptedDynamicParser::new();
     let opt_err = parser.parse_next(ARRAY).err();

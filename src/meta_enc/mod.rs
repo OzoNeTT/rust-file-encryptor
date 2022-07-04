@@ -1,4 +1,4 @@
-mod parser;
+pub mod parser;
 // #[cfg(test)]
 // mod tests;
 
@@ -79,10 +79,11 @@ impl EncryptedMeta {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        vec![0u8]
+        vec![]
             .into_iter()
             .chain(self.content_len().to_le_bytes())
             .chain(self.filename.bytes())
+            .chain([0u8])
             .collect::<Vec<u8>>()
     }
 }

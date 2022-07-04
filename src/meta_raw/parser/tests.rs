@@ -38,7 +38,7 @@ fn parse_not_ready() {
 }
 
 #[test]
-fn parse_wrong_cipher_type() {
+fn parse_wrong_cipher_type() -> error::Result<()> {
     let array = [
         b"\x52\x46\x45\x44\xFF\xAA\x00\xAA\x00\xAA\x00\xAA\x00\xAA\x00"
             as &[u8],
@@ -47,10 +47,10 @@ fn parse_wrong_cipher_type() {
         b"\x00\xAA\x00\xAA\x00\xAA\x00\xAA\x00\xAA\x00\xAA\x00\xAA\x00"
             as &[u8],
     ]
-    .concat();
+        .concat();
 
     let mut parser = MetaRawDynamicParser::new();
-    parser.parse_next(&array.as_slice());
+    parser.parse_next(&array.as_slice())?;
 
     let opt_err = parser.to_raw_meta().err();
     assert!(opt_err.is_some());
@@ -61,6 +61,8 @@ fn parse_wrong_cipher_type() {
         ErrorKind::FileInvalidCipherId
     );
     assert!(err.to_string().contains("255"));
+
+    Ok(())
 }
 
 #[test]
@@ -72,7 +74,7 @@ fn parse_success() -> error::Result<()> {
             as &[u8],
         b"\xDE\xAD\xDE\xAD\xDE\xAD\xDE\xAD" as &[u8],
     ]
-    .concat();
+        .concat();
 
     let mut parser = MetaRawDynamicParser::new();
     let tail = parser.parse_next(&array.as_slice())?;
