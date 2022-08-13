@@ -15,8 +15,8 @@ impl AesGcm {
 impl Cipher for AesGcm {
     fn encrypt(
         &self,
-        source: &mut dyn Read,
-        target: &mut dyn Write,
+        mut source: Box<dyn Read>,
+        mut target: Box<dyn Write>,
         key: &[u8; 32],
         nonce: &[u8],
         enc_meta: &EncryptedMeta,
@@ -26,8 +26,8 @@ impl Cipher for AesGcm {
 
     fn decrypt(
         &self,
-        source: &mut dyn Read,
-        target: &mut dyn Write,
+        mut source: Box<dyn Read>,
+        mut target: Box<dyn Write>,
         key: &[u8; 32],
         nonce: &[u8],
     ) -> crate::error::Result<EncryptedMeta> {

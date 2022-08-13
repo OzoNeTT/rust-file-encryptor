@@ -2,6 +2,7 @@ mod macros;
 #[cfg(test)]
 mod tests;
 
+use crate::meta::error::MetaError;
 use chacha20poly1305::aead;
 use core::fmt;
 use std::array::TryFromSliceError;
@@ -47,6 +48,7 @@ pub enum ErrorKind {
     EncryptedMetaIsEmpty,
     EncryptedMetaIsNotReady,
     EncryptedMetaDecodeError,
+    MetaHeaderError,
     RawMetaIsEmpty,
     RawMetaIsNotReady,
     RawMetaDecodeError,
@@ -69,6 +71,7 @@ impl ErrorKind {
             EncryptedMetaIsEmpty => "Encrypted meta is empty",
             EncryptedMetaIsNotReady => "Encrypted meta is not ready",
             EncryptedMetaDecodeError => "Encrypted meta decode error",
+            MetaHeaderError => "Meta header error",
             RawMetaIsEmpty => "Raw meta is empty",
             RawMetaIsNotReady => "Raw meta is not ready",
             RawMetaDecodeError => "Raw meta decode error",
@@ -125,6 +128,17 @@ impl From<str::Utf8Error> for Error {
         Error {
             repr: Repr::Custom(Box::from(Custom {
                 kind: ErrorKind::Utf8Error,
+                error: Box::from(err),
+            })),
+        }
+    }
+}
+
+impl From<MetaError> for Error {
+    fn from(err: MetaError) -> Self {
+        Error {
+            repr: Repr::Custom(Box::from(Custom {
+                kind: ErrorKind::EncryptedMetaDecodeError,
                 error: Box::from(err),
             })),
         }

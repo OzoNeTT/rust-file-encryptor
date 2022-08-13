@@ -3,17 +3,17 @@ pub mod encryption;
 #[allow(dead_code)]
 pub mod error;
 pub mod file;
+pub mod meta;
 pub mod meta_enc;
 pub mod meta_raw;
-pub mod utils;
 
 use arrayref::array_ref;
 use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::{fs, io, iter};
 use std::path::Path;
+use std::{fs, io, iter};
 
 use rand::{thread_rng, Rng};
 
@@ -22,9 +22,9 @@ use crate::cipher::CipherKind;
 use crate::encryption::{add_raw_meta, get_raw_meta};
 use crate::error::ErrorKind;
 use crate::file::OpenOrCreate;
+use crate::meta::header::MetaHeader;
 use crate::meta_enc::EncryptedMeta;
 use crate::meta_raw::RawMeta;
-use file::GetFileDirectory;
 use rand::distributions::Alphanumeric;
 use sha2::{Digest, Sha256};
 
@@ -42,15 +42,21 @@ pub fn get_hash(key: &str) -> error::Result<[u8; 32]> {
     Ok(hashed_key)
 }
 
-use std::string::String;
-
 pub fn try_decrypt(
     file_path: &Path,
     hash_from_key: [u8; 32],
     preview: bool,
 ) -> error::Result<()> {
     let (meta, target_path) = {
-        let target_file_path = &file_path.with_extension(file_path.extension().unwrap_or(OsStr::new("")).to_str().unwrap_or("").to_string() + ".tmp-enc");
+        let target_file_path = &file_path.with_extension(
+            file_path
+                .extension()
+                .unwrap_or(OsStr::new(""))
+                .to_str()
+                .unwrap_or("")
+                .to_string()
+                + ".tmp-enc",
+        );
 
         let mut target: Box<dyn Write> = if preview {
             Box::from(io::stdout()) as Box<dyn Write>
@@ -60,18 +66,18 @@ pub fn try_decrypt(
             Box::from(file) as Box<dyn Write>
         };
 
-        // TODO: change for buffered reading
-        let raw_meta = get_raw_meta(file_path)?;
-
         let mut source = File::open_read_only(file_path)?;
-        source.seek(SeekFrom::Current(raw_meta.len() as i64))?;
+        let raw_meta = get_raw_meta(&mut source)?;
 
         let file_len = source.metadata()?.len() as usize;
-        let cipher = select_cipher(raw_meta.cipher_kind, Some(file_len - raw_meta.len()));
+        let cipher = select_cipher(
+            raw_meta.cipher_kind,
+            Some(file_len - raw_meta.len()),
+        );
 
         let enc_meta = cipher.decrypt(
-            &mut source,
-            &mut target,
+            Box::from(source),
+            target,
             &hash_from_key,
             &raw_meta.nonce,
         )?;
@@ -81,10 +87,12 @@ pub fn try_decrypt(
 
     if !preview {
         let real_target_path = file_path.with_file_name(meta.filename);
-        println!("Target {:?}, real target {:?}", target_path, real_target_path);
+        println!(
+            "Target {:?}, real target {:?}",
+            target_path, real_target_path
+        );
         fs::rename(target_path, real_target_path)?;
     }
-
 
     // Err(error::Error::new_const(
     //     ErrorKind::OtherError,
@@ -128,27 +136,31 @@ pub fn try_encrypt(
 
         let mut dist_file = File::open_or_create(target_file_path)?;
 
-        let enc_meta = EncryptedMeta::new(
-            file_path
-                .file_name()
-                .ok_or_else(|| {
-                    error::Error::new_const(ErrorKind::OtherError, &"Internal")
-                })?
-                .to_str()
-                .ok_or_else(|| {
-                    error::Error::new_const(ErrorKind::OtherError, &"Internal")
-                })?,
-        );
+        let filename = file_path
+            .file_name()
+            .ok_or_else(|| {
+                error::Error::new_const(ErrorKind::OtherError, &"Internal")
+            })?
+            .to_str()
+            .ok_or_else(|| {
+                error::Error::new_const(ErrorKind::OtherError, &"Internal")
+            })?;
+        let enc_meta = EncryptedMeta {
+            filename: filename.to_string(),
+        };
 
-        let raw_meta = RawMeta::new(&nonce, CipherKind::ChaCha20Poly1305);
+        let raw_meta = RawMeta {
+            cipher_kind: CipherKind::ChaCha20Poly1305,
+            nonce: nonce.clone(),
+        };
         add_raw_meta(&raw_meta, &mut dist_file)?;
 
         // println!("File len: {}, raw meta length: {}", file_len, raw_meta.len());
         let cipher = select_cipher(raw_meta.cipher_kind, Some(file_len));
 
         cipher.encrypt(
-            &mut source_file,
-            &mut dist_file,
+            Box::new(source_file),
+            Box::new(dist_file),
             &hash_from_key,
             nonce,
             &enc_meta,

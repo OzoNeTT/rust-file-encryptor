@@ -1,77 +1,35 @@
-pub mod parser;
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
-use crate::meta_enc::parser::MetaEncryptedDynamicParser;
-use crate::utils::DynamicParser;
-use crate::{error, error::ErrorKind};
-use arrayref::array_ref;
-use std::str;
+use crate::meta::error::{ErrorKind as MetaErrorKind, MetaError};
 use std::str::from_utf8;
 
-/*
-pub const MAGIC_SIZE: usize = 4usize;
-pub const NONCE_SIZE: usize = 19usize;
+const ENC_META_MIN_SIZE: usize = 1;
 
-const META_MIN_SIZE: usize = MAGIC_SIZE + NONCE_SIZE + 2;
-*/
-
+/// Encrypted
 /// Meta-information about file encryption
 ///
 /// # Binary structure
 ///
-/// 1. Zero byte
-/// 2. Filename
-/// 3. Zero byte
-/// 4. Nonce
-/// 5. Magic
-/// 6. EOF
+/// No static sized fields stored.
+/// May contain zero bytes after strings (for an alignment)
 ///
-/// ## Example
+/// Strings is being stored like in ELF files :)
+/// Number of strings: 1.
 ///
-/// Consider filename is `file.txt`, nonce is 0x12, 0x13, ...
-///
-/// ```kotlin
-///      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-/// 0x00 *  *  *  *  *  *  *  *  *  00 f  i  l  e  .  t
-/// 0x10 x  t  00 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E
-/// 0x20 1F 20 21 22 23 24 52 46 45 44 -  -  -  -  -  -
-/// ```
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct EncryptedMeta {
-    /// Magic number.
-    /// Is being used for determining encrypted file
-    // pub magic: [u8; MAGIC_SIZE],
-
-    /// Public number for a cipher
-    //pub nonce: [u8; NONCE_SIZE],
-
     /// Original filename
     pub filename: String,
 }
 
-impl PartialEq<Self> for EncryptedMeta {
-    fn eq(&self, other: &Self) -> bool {
-        //self.magic == other.magic
-        //&& self.nonce == other.nonce
-        //&&
-        self.filename == other.filename
-    }
-}
-
 impl EncryptedMeta {
-    pub fn new(filename: &str) -> Self {
-        Self {
-            filename: filename.to_string(),
-        }
+    pub const fn version() -> u8 {
+        1
     }
 
     pub fn len(&self) -> usize {
-        2 + self.filename.len() + 1
-    }
-
-    pub fn content_len(&self) -> u16 {
-        (self.filename.len() as u16) + 1
+        self.filename.len() + 1
     }
 
     pub fn is_empty(&self) -> bool {
@@ -79,30 +37,48 @@ impl EncryptedMeta {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        vec![]
+        Vec::<u8>::with_capacity(self.len())
             .into_iter()
-            .chain(self.content_len().to_le_bytes())
             .chain(self.filename.bytes())
             .chain([0u8])
             .collect::<Vec<u8>>()
     }
-}
 
-impl TryInto<EncryptedMeta> for &[u8] {
-    type Error = error::Error;
+    pub fn try_from_bytes(value: &[u8]) -> Result<Self, MetaError> {
+        println!("try_from_bytes value.len() {}", value.len());
 
-    fn try_into(self) -> Result<EncryptedMeta, Self::Error> {
-        let mut parser = MetaEncryptedDynamicParser::new();
-        parser.parse_next(&self)?;
+        if value.len() < ENC_META_MIN_SIZE {
+            return Err(MetaErrorKind::WrongEncryptedVecSize.into());
+        }
+        if value[value.len() - 1] != 0x00 {
+            return Err(MetaErrorKind::WrongEncryptedWrongStringsAmount.into());
+        }
 
-        parser.to_encrypted_meta()
+        let res = value
+            .into_iter()
+            .skip(
+                0, /* structure body before strings */
+            )
+            .map_while(|c| if *c != 0x00 { Some(*c) } else { None })
+            .collect::<Vec<u8>>();
+        Ok(Self {
+            filename: from_utf8(res.as_slice())?.to_string(),
+        })
     }
 }
 
-impl TryInto<EncryptedMeta> for &Vec<u8> {
-    type Error = error::Error;
+impl TryFrom<&Vec<u8>> for EncryptedMeta {
+    type Error = MetaError;
 
-    fn try_into(self) -> Result<EncryptedMeta, Self::Error> {
-        self.as_slice().try_into()
+    fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
+        Self::try_from_bytes(value)
+    }
+}
+
+impl TryFrom<Vec<u8>> for EncryptedMeta {
+    type Error = MetaError;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Self::try_from_bytes(&value)
     }
 }

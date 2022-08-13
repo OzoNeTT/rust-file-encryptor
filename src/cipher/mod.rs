@@ -1,7 +1,7 @@
-pub mod kind;
+use crate::meta::error::ErrorKind as MetaErrorKind;
+use crate::meta::error::MetaError;
 
-use crate::error;
-use crate::error::ErrorKind::FileInvalidCipherId;
+pub mod kind;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum CipherKind {
@@ -28,16 +28,13 @@ impl CipherKind {
 }
 
 impl TryInto<CipherKind> for u8 {
-    type Error = error::Error;
+    type Error = MetaError;
 
     fn try_into(self) -> Result<CipherKind, Self::Error> {
         match self {
             0 => Ok(CipherKind::ChaCha20Poly1305),
             1 => Ok(CipherKind::AesGcm),
-            _ => Err(Self::Error::new(
-                FileInvalidCipherId,
-                format!("Cipher ID {} is invalid", self),
-            )),
+            _ => Err(MetaErrorKind::WrongRawCipherKind.into()),
         }
     }
 }

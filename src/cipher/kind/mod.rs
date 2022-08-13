@@ -7,8 +7,8 @@ mod chacha20;
 pub trait Cipher {
     fn encrypt(
         &self,
-        source: &mut dyn io::Read,
-        target: &mut dyn io::Write,
+        source: Box<dyn io::Read>,
+        target: Box<dyn io::Write>,
         key: &[u8; 32],
         nonce: &[u8],
         enc_meta: &EncryptedMeta,
@@ -16,8 +16,8 @@ pub trait Cipher {
 
     fn decrypt(
         &self,
-        source: &mut dyn io::Read,
-        target: &mut dyn io::Write,
+        source: Box<dyn io::Read>,
+        target: Box<dyn io::Write>,
         key: &[u8; 32],
         nonce: &[u8],
     ) -> error::Result<EncryptedMeta>;
