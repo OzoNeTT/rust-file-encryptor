@@ -1,7 +1,8 @@
 pub mod cipher;
 pub mod encryption;
-#[allow(dead_code)]
+
 pub mod error;
+
 pub mod file;
 pub mod meta;
 
@@ -9,7 +10,7 @@ use arrayref::array_ref;
 use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::Write;
 use std::path::Path;
 use std::{fs, io, iter};
 
@@ -20,7 +21,6 @@ use crate::cipher::CipherKind;
 use crate::encryption::{add_raw_meta, get_raw_meta};
 use crate::error::ErrorKind;
 use crate::file::OpenOrCreate;
-use crate::meta::header::MetaHeader;
 use meta::enc::EncryptedMeta;
 use meta::raw::RawMeta;
 use rand::distributions::Alphanumeric;
@@ -49,18 +49,18 @@ pub fn try_decrypt(
         let target_file_path = &file_path.with_extension(
             file_path
                 .extension()
-                .unwrap_or(OsStr::new(""))
+                .unwrap_or_else(|| OsStr::new(""))
                 .to_str()
                 .unwrap_or("")
                 .to_string()
                 + ".tmp-enc",
         );
 
-        let mut target: Box<dyn Write> = if preview {
+        let target: Box<dyn Write> = if preview {
             println!("\n----------------- [ cut here ] -----------------");
             Box::from(io::stdout()) as Box<dyn Write>
         } else {
-            let mut file = File::open_or_create(target_file_path)?;
+            let file = File::open_or_create(target_file_path)?;
 
             Box::from(file) as Box<dyn Write>
         };
@@ -124,7 +124,7 @@ pub fn try_encrypt(
     log::trace!(target: "lib try_encrypt", "Nonce: {nonce:?}");
 
     {
-        let mut source_file = File::open(file_path)?;
+        let source_file = File::open(file_path)?;
         let file_len = source_file.metadata()?.len() as usize;
 
         if target_file_path.exists() {
@@ -156,7 +156,7 @@ pub fn try_encrypt(
 
         let raw_meta = RawMeta {
             cipher_kind: CipherKind::ChaCha20Poly1305,
-            nonce: nonce.clone(),
+            nonce: *nonce,
         };
         add_raw_meta(&raw_meta, &mut dist_file)?;
 

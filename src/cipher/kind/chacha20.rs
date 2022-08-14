@@ -1,14 +1,13 @@
 use crate::cipher::kind::Cipher;
 use crate::meta::header::MetaHeader;
-use crate::{not_implemented, EncryptedMeta, ErrorKind};
+use crate::EncryptedMeta;
 use chacha20poly1305::{
     aead::{stream, NewAead},
     XChaCha20Poly1305,
 };
-use std::cmp::{max, min};
-use std::fs::read;
+use std::cmp::min;
 use std::io;
-use std::io::{BufRead, Read, Write};
+use std::io::{Read, Write};
 
 pub struct ChaCha20 {
     size: Option<usize>,
@@ -113,8 +112,7 @@ impl Cipher for ChaCha20 {
             }
 
             let mut inner_buffer = vec![0u8; BUFFER_LEN - meta_vec_delta];
-            let mut read_count =
-                source.read(&mut inner_buffer)? + meta_vec_delta;
+            let read_count = source.read(&mut inner_buffer)? + meta_vec_delta;
             log::debug!(target: "cipher/kind/chacha20 ChaCha20 encrypt","Plain text length: {}", read_count);
 
             glob_len += read_count;
@@ -147,7 +145,7 @@ impl Cipher for ChaCha20 {
     fn decrypt(
         &self,
         mut source: Box<dyn Read>,
-        mut target: Box<dyn Write>,
+        target: Box<dyn Write>,
         key: &[u8; 32],
         nonce: &[u8],
     ) -> crate::error::Result<EncryptedMeta> {
@@ -160,11 +158,11 @@ impl Cipher for ChaCha20 {
         const BUFFER_LEN: usize = 500 + 16; // 16 is MAC code length
         let mut glob_len = 0usize;
 
-        let mut processing = CipherProcessing::new(Box::from(target));
+        let mut processing = CipherProcessing::new(target);
 
         loop {
             let mut buffer = [0u8; BUFFER_LEN];
-            let mut read_count = source.read(&mut buffer)?;
+            let read_count = source.read(&mut buffer)?;
             let slice = &buffer[..read_count];
             log::trace!(target: "cipher/kind/chacha20 ChaCha20 decrypt","Buffer to decrypt: {:?}", slice);
 

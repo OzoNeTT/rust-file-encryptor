@@ -6,7 +6,7 @@ use rpassword::prompt_password;
 use std::fs::remove_file;
 use std::io;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 // TODO: make mod app
 #[derive(Parser, Debug)]

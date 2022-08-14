@@ -47,7 +47,7 @@ impl From<ErrorKind> for MetaError {
 }
 
 impl From<Utf8Error> for MetaError {
-    fn from(value: Utf8Error) -> Self {
+    fn from(_: Utf8Error) -> Self {
         MetaError {
             repr: ErrorKind::WrongEncryptedUtf8Error,
         }

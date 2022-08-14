@@ -2,10 +2,6 @@ use crate::error;
 use crate::meta::error::MetaError;
 use crate::meta::header::MetaHeader;
 use crate::meta::raw::RawMeta;
-use chacha20poly1305::{
-    aead::{stream, NewAead},
-    XChaCha20Poly1305,
-};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
