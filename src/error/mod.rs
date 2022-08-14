@@ -219,7 +219,7 @@ impl Error {
     pub fn new_file_already_exist(filename: &str) -> Self {
         Self::new(
             ErrorKind::FileAlreadyExist,
-            format!("File '{}' not found", filename),
+            format!("File '{}' already exists", filename),
         )
     }
 

@@ -6,6 +6,7 @@ use chacha20poly1305::{
     XChaCha20Poly1305,
 };
 use std::cmp::{max, min};
+use std::fs::read;
 use std::io;
 use std::io::{BufRead, Read, Write};
 
@@ -49,9 +50,11 @@ impl CipherProcessing {
             .enc_header
             .expect("Got none header after none processing");
 
-        let mut tmp_enc_meta_data = vec![0u8; (header.size as usize) - self.enc_meta_data.len()];
+        let mut tmp_enc_meta_data =
+            vec![0u8; (header.size as usize) - self.enc_meta_data.len()];
         let i = cursor.read(&mut tmp_enc_meta_data)?;
-        self.enc_meta_data.extend(tmp_enc_meta_data);
+        self.enc_meta_data
+            .extend(tmp_enc_meta_data);
 
         io::copy(&mut cursor, &mut self.target)?;
 
@@ -118,20 +121,15 @@ impl Cipher for ChaCha20 {
             }
 
             buffer.extend(inner_buffer);
+            let slice = &buffer[..read_count];
 
             println!("Buffer to encrypt: {buffer:?}");
 
-            if read_count == BUFFER_LEN {
-                println!("Encrypt next {read_count}");
-                let ciphertext =
-                    stream_encryptor.encrypt_next(buffer.as_slice())?;
+            println!("Encrypt next {read_count}");
+            let ciphertext = stream_encryptor.encrypt_next(slice)?;
 
-                target.write_all(&ciphertext)?;
-            } else {
-                println!("Encrypt last {read_count}");
-                let ciphertext = stream_encryptor
-                    .encrypt_last(&buffer[..read_count])?;
-                target.write_all(&ciphertext)?;
+            target.write_all(&ciphertext)?;
+            if read_count != BUFFER_LEN {
                 break;
             }
         }
@@ -152,7 +150,7 @@ impl Cipher for ChaCha20 {
         let mut stream_decryptor =
             stream::DecryptorBE32::from_aead(aead, nonce.into());
 
-        const BUFFER_LEN: usize = 500 + 16;
+        const BUFFER_LEN: usize = 500 + 16; // 16 is MAC code length
         let mut glob_len = 0usize;
 
         let mut processing = CipherProcessing::new(Box::from(target));
@@ -175,20 +173,13 @@ impl Cipher for ChaCha20 {
 
             let slice = &buffer[..read_count];
 
-            if read_count == BUFFER_LEN {
-                println!("Decrypt next");
+            println!("Decrypt next");
 
-                let plain_text = stream_decryptor.decrypt_next(slice)?;
-                println!("Plain text: {plain_text:?}");
+            let plain_text = stream_decryptor.decrypt_next(slice)?;
+            println!("Plain text: {plain_text:?}");
 
-                processing.process(plain_text)?;
-            } else {
-                println!("Decrypt last");
-
-                let plain_text = stream_decryptor.decrypt_last(slice)?;
-                println!("Plain text: {plain_text:?}");
-
-                processing.process(plain_text)?;
+            processing.process(plain_text)?;
+            if read_count != BUFFER_LEN {
                 break;
             }
         }

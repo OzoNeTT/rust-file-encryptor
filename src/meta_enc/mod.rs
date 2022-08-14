@@ -45,7 +45,10 @@ impl EncryptedMeta {
     }
 
     pub fn try_from_bytes(value: &[u8]) -> Result<Self, MetaError> {
-        println!("try_from_bytes value.len() {}", value.len());
+        println!(
+            "try_from_bytes value.len() {}",
+            value.len()
+        );
 
         if value.len() < ENC_META_MIN_SIZE {
             return Err(MetaErrorKind::WrongEncryptedVecSize.into());
