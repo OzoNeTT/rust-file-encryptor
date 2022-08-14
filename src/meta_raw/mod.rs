@@ -66,6 +66,7 @@ impl RawMeta {
 
         (&mut result[Self::NONCE_BYTE_INDEX..]).clone_from_slice(&self.nonce);
 
+        log::trace!(target: "meta/raw RawMeta to_bytes", "Result: {result:?}");
         result
     }
 
@@ -93,6 +94,8 @@ impl TryFrom<&Vec<u8>> for RawMeta {
     type Error = MetaError;
 
     fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
+        log::debug!(target: "meta/raw RawMeta try_from", "value.len(): {:?}",  value.len());
+
         RawMeta::try_from_bytes(
             value
                 .as_slice()

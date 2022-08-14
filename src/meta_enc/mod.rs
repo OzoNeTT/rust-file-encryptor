@@ -37,18 +37,18 @@ impl EncryptedMeta {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        Vec::<u8>::with_capacity(self.len())
+        let result = Vec::<u8>::with_capacity(self.len())
             .into_iter()
             .chain(self.filename.bytes())
             .chain([0u8])
-            .collect::<Vec<u8>>()
+            .collect::<Vec<u8>>();
+
+        log::trace!(target: "meta/enc RawMeta to_vec", "Result: {result:?}");
+        result
     }
 
     pub fn try_from_bytes(value: &[u8]) -> Result<Self, MetaError> {
-        println!(
-            "try_from_bytes value.len() {}",
-            value.len()
-        );
+        log::debug!(target: "meta/enc RawMeta try_from_bytes", "value.len(): {:?}",  value.len());
 
         if value.len() < ENC_META_MIN_SIZE {
             return Err(MetaErrorKind::WrongEncryptedVecSize.into());
@@ -57,15 +57,17 @@ impl EncryptedMeta {
             return Err(MetaErrorKind::WrongEncryptedWrongStringsAmount.into());
         }
 
-        let res = value
-            .into_iter()
+        let filename_bytes = value
+            .iter()
             .skip(
                 0, /* structure body before strings */
             )
             .map_while(|c| if *c != 0x00 { Some(*c) } else { None })
             .collect::<Vec<u8>>();
+        log::trace!(target: "meta/enc RawMeta try_from_bytes", "Filename: {filename_bytes:?}");
+
         Ok(Self {
-            filename: from_utf8(res.as_slice())?.to_string(),
+            filename: from_utf8(filename_bytes.as_slice())?.to_string(),
         })
     }
 }

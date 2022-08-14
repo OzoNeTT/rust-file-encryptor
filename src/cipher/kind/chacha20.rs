@@ -16,7 +16,7 @@ pub struct ChaCha20 {
 
 impl ChaCha20 {
     pub fn new(size: Option<usize>) -> Self {
-        return Self { size };
+        Self { size }
     }
 }
 
@@ -42,9 +42,12 @@ impl CipherProcessing {
             // TODO: buffer size must be always > header size
             let mut enc_header_data = vec![0u8; MetaHeader::size()];
             cursor.read_exact(&mut enc_header_data)?;
+            log::trace!(target: "cipher/kind/chacha20 CipherProcessing process", "Meta header buffer: {:?}", enc_header_data);
 
             let header = (&enc_header_data).try_into()?;
             self.enc_header = Some(header);
+            log::debug!(target: "cipher/kind/chacha20 CipherProcessing process", "Read meta header");
+            log::trace!(target: "cipher/kind/chacha20 CipherProcessing process", "MetaHeader: {:?}", header);
         }
         let header = self
             .enc_header
@@ -52,7 +55,7 @@ impl CipherProcessing {
 
         let mut tmp_enc_meta_data =
             vec![0u8; (header.size as usize) - self.enc_meta_data.len()];
-        let i = cursor.read(&mut tmp_enc_meta_data)?;
+        let _ = cursor.read(&mut tmp_enc_meta_data)?;
         self.enc_meta_data
             .extend(tmp_enc_meta_data);
 
@@ -71,6 +74,7 @@ impl Cipher for ChaCha20 {
         nonce: &[u8],
         enc_meta: &EncryptedMeta,
     ) -> crate::error::Result<()> {
+        log::debug!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "Begin");
         let aead = XChaCha20Poly1305::new(key.as_ref().into());
 
         let mut stream_encryptor =
@@ -84,6 +88,7 @@ impl Cipher for ChaCha20 {
             magic: MetaHeader::MAGIC,
             version: EncryptedMeta::version(),
         };
+        log::trace!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "MetaHeader: {:?}",header);
 
         let vec_enc = enc_meta.to_vec();
         let meta_vector: Vec<u8> = header
@@ -110,25 +115,27 @@ impl Cipher for ChaCha20 {
             let mut inner_buffer = vec![0u8; BUFFER_LEN - meta_vec_delta];
             let mut read_count =
                 source.read(&mut inner_buffer)? + meta_vec_delta;
+            log::debug!(target: "cipher/kind/chacha20 ChaCha20 encrypt","Plain text length: {}", read_count);
+
             glob_len += read_count;
             match self.size {
                 None => {
-                    println!("Encrypting {:?}", glob_len);
+                    log::info!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "Encrypting {:>6}", glob_len);
                 }
                 Some(size) => {
-                    println!("Encrypting {:?}/{:?}", glob_len, size,);
+                    log::info!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "Encrypting {:>6}/{:>6}", glob_len, size,);
                 }
             }
 
             buffer.extend(inner_buffer);
             let slice = &buffer[..read_count];
 
-            println!("Buffer to encrypt: {buffer:?}");
-
-            println!("Encrypt next {read_count}");
             let ciphertext = stream_encryptor.encrypt_next(slice)?;
+            log::trace!(target: "cipher/kind/chacha20 ChaCha20 encrypt","Ciphertext: {:?}", ciphertext);
 
+            // TODO: maybe replace by BufWriter
             target.write_all(&ciphertext)?;
+            log::debug!(target: "cipher/kind/chacha20 ChaCha20 encrypt","Ciphertext block written into the file");
             if read_count != BUFFER_LEN {
                 break;
             }
@@ -144,7 +151,7 @@ impl Cipher for ChaCha20 {
         key: &[u8; 32],
         nonce: &[u8],
     ) -> crate::error::Result<EncryptedMeta> {
-        println!("Decrypt in");
+        log::debug!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Begin");
 
         let aead = XChaCha20Poly1305::new(key.as_ref().into());
         let mut stream_decryptor =
@@ -158,25 +165,22 @@ impl Cipher for ChaCha20 {
         loop {
             let mut buffer = [0u8; BUFFER_LEN];
             let mut read_count = source.read(&mut buffer)?;
-            println!("Buffer to decrypt: {buffer:?}");
+            let slice = &buffer[..read_count];
+            log::trace!(target: "cipher/kind/chacha20 ChaCha20 decrypt","Buffer to decrypt: {:?}", slice);
 
             glob_len += read_count;
 
             match self.size {
                 None => {
-                    println!("Encrypting {:?}", glob_len);
+                    log::info!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Decrypting {:>6}", glob_len);
                 }
                 Some(size) => {
-                    println!("Encrypting {:?}/{:?}", glob_len, size,);
+                    log::info!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Decrypting {:>6}/{:>6}", glob_len, size,);
                 }
             }
 
-            let slice = &buffer[..read_count];
-
-            println!("Decrypt next");
-
             let plain_text = stream_decryptor.decrypt_next(slice)?;
-            println!("Plain text: {plain_text:?}");
+            log::debug!(target: "cipher/kind/chacha20 ChaCha20 decrypt","Plain text length: {}", plain_text.len());
 
             processing.process(plain_text)?;
             if read_count != BUFFER_LEN {
@@ -184,6 +188,7 @@ impl Cipher for ChaCha20 {
             }
         }
 
+        log::trace!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Encrypted meta buffer: {:?}", processing.enc_meta_data);
         Ok(processing.enc_meta_data.try_into()?)
     }
 }

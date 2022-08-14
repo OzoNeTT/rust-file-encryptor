@@ -59,6 +59,7 @@ pub fn try_decrypt(
         );
 
         let mut target: Box<dyn Write> = if preview {
+            println!("\n----------------- [ cut here ] -----------------");
             Box::from(io::stdout()) as Box<dyn Write>
         } else {
             let mut file = File::open_or_create(target_file_path)?;
@@ -81,6 +82,9 @@ pub fn try_decrypt(
             &hash_from_key,
             &raw_meta.nonce,
         )?;
+        if preview {
+            println!("\n------------ [ end of the content ] ------------\n");
+        }
 
         (enc_meta, target_file_path.clone())
     };
@@ -118,6 +122,9 @@ pub fn try_encrypt(
         .collect::<Vec<u8>>();
 
     let nonce = array_ref![rand_string.as_slice(), 0, 19];
+    log::debug!(target: "lib try_encrypt", "Generated nonce");
+    log::trace!(target: "lib try_encrypt", "Nonce: {nonce:?}");
+
     {
         let mut source_file = File::open(file_path)?;
         let file_len = source_file.metadata()?.len() as usize;

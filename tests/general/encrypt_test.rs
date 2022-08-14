@@ -16,6 +16,8 @@ fn setup() -> io::Result<()> {
     Ok(())
 }
 
+// TODO: remove copypasted tests
+
 #[test]
 fn test_common() -> error::Result<()> {
     setup()?;
@@ -101,6 +103,54 @@ fn test_common_large() -> error::Result<()> {
 
     let mut expected_buff = Vec::<u8>::with_capacity(512);
     File::open(temp.child("to_enc_large.txt").path())
+        .expect("")
+        .read_to_end(&mut expected_buff)
+        .expect("");
+
+    assert_eq!(buffer, expected_buff);
+
+    // temp.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_common_small() -> error::Result<()> {
+    setup()?;
+
+    let temp = assert_fs::TempDir::new()?;
+    temp.copy_from(ROOT_FILE_DIR, &["*.txt"])
+        .expect("");
+
+    let raw_file = temp.child("to_enc_small.txt");
+    let key_hash = file_encryptor::get_hash("amongus").expect("");
+    file_encryptor::try_encrypt((&raw_file).path(), key_hash.clone())?;
+
+    fs::remove_file(raw_file.path()).expect("");
+
+    let enc_file = temp.child("to_enc_small.enc");
+    let enc_file_path = enc_file.path();
+    println!("enc_file_path {enc_file_path:?}");
+
+    fs::copy(
+        enc_file_path,
+        PathBuf::from(TEMP_FILE_DIR).join("enc_small.bin"),
+    )?;
+
+    file_encryptor::try_decrypt(enc_file_path, key_hash.clone(), false)?;
+
+    let mut buffer = Vec::<u8>::with_capacity(512);
+    File::open(
+        Path::new(".")
+            .join(ROOT_FILE_DIR)
+            .join("to_enc_small.txt"),
+    )
+    .expect("")
+    .read_to_end(&mut buffer)
+    .expect("");
+
+    let mut expected_buff = Vec::<u8>::with_capacity(512);
+    File::open(temp.child("to_enc_small.txt").path())
         .expect("")
         .read_to_end(&mut expected_buff)
         .expect("");

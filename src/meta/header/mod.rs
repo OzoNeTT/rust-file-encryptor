@@ -77,6 +77,7 @@ impl MetaHeader {
         result[META_MAGIC_SIZE] = self.version;
         (&mut result[8..]).clone_from_slice(&self.size.to_le_bytes());
 
+        log::trace!(target: "meta/header MetaHeader to_bytes", "Result: {result:?}");
         result
     }
 
@@ -99,7 +100,8 @@ impl TryFrom<&Vec<u8>> for MetaHeader {
     type Error = MetaError;
 
     fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
-        println!("value.len(): {}", value.len());
+        log::debug!(target: "meta/header MetaHeader try_from", "value.len(): {:?}",  value.len());
+
         Ok(Self::from_bytes(
             value
                 .as_slice()
