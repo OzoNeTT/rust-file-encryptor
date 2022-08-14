@@ -1,5 +1,5 @@
+use crate::meta::enc::EncryptedMeta;
 use crate::meta::error::{ErrorKind as MetaErrorKind, MetaError};
-use crate::meta_enc::EncryptedMeta;
 use crate::{error, CipherKind};
 
 const FILENAME: &'static str = "the filename";

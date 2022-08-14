@@ -4,8 +4,6 @@ pub mod encryption;
 pub mod error;
 pub mod file;
 pub mod meta;
-pub mod meta_enc;
-pub mod meta_raw;
 
 use arrayref::array_ref;
 use std::convert::TryInto;
@@ -23,8 +21,8 @@ use crate::encryption::{add_raw_meta, get_raw_meta};
 use crate::error::ErrorKind;
 use crate::file::OpenOrCreate;
 use crate::meta::header::MetaHeader;
-use crate::meta_enc::EncryptedMeta;
-use crate::meta_raw::RawMeta;
+use meta::enc::EncryptedMeta;
+use meta::raw::RawMeta;
 use rand::distributions::Alphanumeric;
 use sha2::{Digest, Sha256};
 

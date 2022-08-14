@@ -1,5 +1,5 @@
 use crate::meta::error::{ErrorKind as MetaErrorKind, MetaError};
-use crate::meta_raw::{RawMeta, META_RAW_NONCE_SIZE};
+use crate::meta::raw::{RawMeta, META_RAW_NONCE_SIZE};
 use crate::{error, CipherKind};
 
 const NONCE: [u8; META_RAW_NONCE_SIZE] = [
