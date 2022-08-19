@@ -50,19 +50,6 @@ fn main() -> error::Result<()> {
     }
     log::debug!(target: "app_main", "File exists, ok");
 
-    let key = match app_data.key {
-        Some(key) => key,
-        None => prompt_password("Enter the key: ")?,
-    };
-
-    let hash_from_key = get_hash(&key)?;
-    log::debug!(target: "app_main", "Key entered");
-
-    //let target_file_path = Path::new("./bin/sample.txt.enc");
-    //let decrypt_file_path = Path::new("./bin/sample.txt.dec");
-
-    //let mut meta_info: EncryptedMeta;
-
     let mut preview: bool = false;
     if try_parse(file_path.as_ref())? {
         preview = match app_data.preview {
@@ -99,6 +86,14 @@ fn main() -> error::Result<()> {
             }
         };
 
+        let key = match app_data.key {
+            Some(key) => key,
+            None => prompt_password("Enter the key: ")?,
+        };
+
+        let hash_from_key = get_hash(&key)?;
+        log::debug!(target: "app_main", "Key entered");
+
         println!("Encrypted file will be decrypted");
         try_decrypt(
             file_path.as_ref(),
@@ -107,6 +102,24 @@ fn main() -> error::Result<()> {
         )?;
     } else {
         println!("Raw file will be encrypted");
+
+        let key = match app_data.key {
+            Some(key) => key,
+            None => loop {
+                let password1 = prompt_password("Enter the key : ")?;
+                let password2 = prompt_password("Repeat the key: ")?;
+
+                if password1 != password2 {
+                    println!("Password does not match each other");
+                    continue;
+                }
+
+                break password1;
+            },
+        };
+
+        let hash_from_key = get_hash(&key)?;
+        log::debug!(target: "app_main", "Key entered");
 
         // to encrypt
         try_encrypt(file_path.as_ref(), hash_from_key)?;
