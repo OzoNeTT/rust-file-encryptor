@@ -241,7 +241,7 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
 }
 
 pub fn register_all_commands(cmd_context: &mut CommandProcessorContext<AppContext>) {
-    let commands: [Box<dyn CommandProcessor<AppContext>>; 11] = [
+    let commands: [Box<dyn CommandProcessor<AppContext>>; 12] = [
         Box::from(CmdSetKey::new()),
         Box::from(CmdUnsetKey::new()),
         Box::from(CmdSetPreview::new()),
@@ -251,6 +251,7 @@ pub fn register_all_commands(cmd_context: &mut CommandProcessorContext<AppContex
         Box::from(CmdDecrypt::new()),
         Box::from(CmdHistory::new()),
         Box::from(CmdLs::new()),
+        Box::from(CmdPwd::new()),
         Box::from(CmdHelp::new()),
         Box::from(CmdExit::new()),
     ];
