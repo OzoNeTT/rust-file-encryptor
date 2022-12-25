@@ -1,28 +1,17 @@
-use clap::Parser;
 use file_encryptor::encryption::try_parse;
 use file_encryptor::{error, get_hash, try_decrypt, try_encrypt};
 use path_absolutize::*;
 use rpassword::prompt_password;
 use std::fs::remove_file;
-use std::io;
-use std::io::Write;
+use std::{env, io};
+use std::io::{Read, Write};
 use std::path::Path;
-
-// TODO: make mod app
-#[derive(Parser, Debug)]
-struct AppData {
-    #[clap(help = "Path to the file", required = true)]
-    pub filepath: String,
-
-    #[clap(short = 'k', long = "key", help = "Key")]
-    pub key: Option<String>,
-
-    #[clap(short = 'p', long = "preview", help = "Preview-only mode")]
-    pub preview: Option<bool>,
-
-    #[clap(long = "keep", help = "Do not delete original file")]
-    pub keep_original: bool,
-}
+use file_encryptor::app::context::{AppContext, get_context_preview, set_context_key_hash, user_key_hash};
+use file_encryptor::cli::args::{get_arguments};
+use file_encryptor::cli::runtime::{CommandProcessor, CommandProcessorContext};
+use file_encryptor::cli::runtime::confirm::UserConfirm;
+use file_encryptor::cli::runtime::command as cmd;
+use file_encryptor::cli::runtime::command::register_all_commands;
 
 /// Log level is being controlled by the ENV variable RUST_LOG
 ///
@@ -36,11 +25,47 @@ fn init_logger() {
     pretty_env_logger::init();
 }
 
+fn cli_mode(mut ctx: AppContext, mut cmd_context: CommandProcessorContext<AppContext>) -> error::Result<()> {
+    while !ctx.cli_exit {
+        let line = match cmd_context.lines_processing(&mut ctx, &mut console::Term::stdout()) {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!(target: "app_main", "Error: {e}");
+                continue;
+            }
+        };
+        log::debug!(target: "app_main", "Got line: {line}");
+
+        // cmd_context.
+    }
+
+    Ok(())
+}
+
 fn main() -> error::Result<()> {
     init_logger();
+    let mut cmd_context: CommandProcessorContext<AppContext> = CommandProcessorContext::new();
+    let mut term = console::Term::stdout();
+    let data = get_arguments(&mut env::args_os());
+    let mut ctx = AppContext {
+        cli_current_path: Path::new(&data.filepath).absolutize()?.to_path_buf(),
+        cli_exit: false,
+        key_hash: None,
+        data: data,
+        term,
+    };
+    register_all_commands(&mut cmd_context);
 
-    let app_data: AppData = AppData::parse();
-    let file_path = Path::new(&app_data.filepath).absolutize()?;
+    if ctx.data.key.is_some() {
+        ctx.key_hash = Some(get_hash(ctx.data.key.unwrap().as_str())?);
+        ctx.data.key = None;
+    }
+
+    if ctx.data.cli.unwrap_or(false) {
+        return cli_mode(ctx, cmd_context);
+    }
+
+    let file_path = Path::new(&ctx.data.filepath).absolutize()?;
     log::info!(target: "app_main", "Filepath: {:?}", file_path);
 
     if !file_path.exists() {
@@ -52,42 +77,11 @@ fn main() -> error::Result<()> {
 
     let mut preview: bool = false;
     if try_parse(file_path.as_ref())? {
-        preview = match app_data.preview {
-            Some(v) => {
-                log::debug!(target: "app_main","Preview arg is defined: {:?}", v);
-                v
-            }
-            None => {
-                log::debug!(target: "app_main","Preview arg is undefined. Asking for preview");
+        preview = get_context_preview(&ctx)?;
+        log::debug!(target: "app_main","Preview arg is: {:?}", preview);
 
-                // TODO: encapsulate stdin somehow (macros maybe >.<)
-
-                let mut dialog_result: Option<bool> = None;
-                while dialog_result.is_none() {
-                    print!("Preview the file content (do not create decrypted file) [Y/n]: ");
-                    io::stdout().flush()?;
-
-                    let mut buffer = String::new();
-                    io::stdin().read_line(&mut buffer)?;
-                    buffer = buffer.trim().to_lowercase();
-
-                    log::debug!("CLI read buffer: {:?}", buffer);
-                    dialog_result = if buffer == "y" {
-                        Some(true)
-                    } else if buffer == "n" {
-                        Some(false)
-                    } else {
-                        None
-                    };
-                }
-
-                log::debug!(target: "app_main","Dialog result is: {:?}", dialog_result);
-                dialog_result.unwrap()
-            }
-        };
-
-        let key = match app_data.key {
-            Some(key) => key,
+        let key = match &ctx.data.key {
+            Some(key) => key.clone(),
             None => prompt_password("Enter the key: ")?,
         };
 
@@ -102,30 +96,16 @@ fn main() -> error::Result<()> {
         )?;
     } else {
         println!("Raw file will be encrypted");
-
-        let key = match app_data.key {
-            Some(key) => key,
-            None => loop {
-                let password1 = prompt_password("Enter the key : ")?;
-                let password2 = prompt_password("Repeat the key: ")?;
-
-                if password1 != password2 {
-                    println!("Password does not match each other");
-                    continue;
-                }
-
-                break password1;
-            },
-        };
-
-        let hash_from_key = get_hash(&key)?;
         log::debug!(target: "app_main", "Key entered");
+        if ctx.key_hash.is_none() {
+            ctx.key_hash = Some(user_key_hash()?);
+        }
 
         // to encrypt
-        try_encrypt(file_path.as_ref(), hash_from_key)?;
+        try_encrypt(file_path.as_ref(), ctx.key_hash.unwrap())?;
     }
 
-    if !app_data.keep_original && !preview {
+    if !ctx.data.keep_original && !preview {
         remove_file(file_path.as_ref())?;
     }
 

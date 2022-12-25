@@ -5,6 +5,8 @@ pub mod error;
 
 pub mod file;
 pub mod meta;
+pub mod cli;
+pub mod app;
 
 use arrayref::array_ref;
 use std::convert::TryInto;

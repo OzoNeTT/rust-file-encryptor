@@ -54,6 +54,8 @@ pub enum ErrorKind {
     RawMetaDecodeError,
     Utf8Error,
     IOError,
+    InvalidArgument,
+    FormatError,
     OtherError,
 }
 
@@ -77,6 +79,8 @@ impl ErrorKind {
             RawMetaDecodeError => "Raw meta decode error",
             Utf8Error => "Utf8 Error",
             IOError => "IO Error",
+            FormatError => "Format Error",
+            InvalidArgument => "Invalid Argument Error",
             OtherError => "Unknown error",
         }
     }
@@ -86,6 +90,17 @@ impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Self {
         Error {
             repr: Repr::Simple(kind),
+        }
+    }
+}
+
+impl From<fmt::Error> for Error {
+    fn from(err: fmt::Error) -> Self {
+        Error {
+            repr: Repr::Custom(Box::from(Custom {
+                kind: ErrorKind::FormatError,
+                error: Box::from(err),
+            })),
         }
     }
 }
