@@ -1,9 +1,7 @@
-use std::io::Write;
-use std::rc::Rc;
-use clap::arg;
+use std::borrow::Borrow;
+use std::path::{Path, PathBuf};
 use path_absolutize::Absolutize;
 use crate::app::context::{AppContext, get_context_preview, KeyHashType, set_context_key_hash};
-use crate::cli::args::AppData;
 use crate::cli::runtime::{CommandProcessor, CommandProcessorContext};
 use crate::{error, try_decrypt, try_encrypt};
 use crate::error::{Error, Result};
@@ -186,7 +184,10 @@ impl CommandProcessor<AppContext> for CmdLs {
     command_processor_nohint!();
 
     fn process_command(&self, ctx: &mut AppContext, cmd_context: &CommandProcessorContext<AppContext>, _command: &str, _arguments: &Vec<String>) -> Result<()> {
-        std::fs::read_dir(&ctx.cli_current_path)?.try_for_each(|s| ctx.term.write_line(s?.path().display().to_string().as_str()))?;
+        std::fs::read_dir(&ctx.cli_current_path)?
+            .filter_map(|s| s.ok())
+            .map(|s| if s.path().is_dir() { "DIR  " } else { "FILE " }.to_string() + s.path().display().to_string().as_str())
+            .try_for_each(|s| ctx.term.write_line(s.as_str()))?;
         Ok(())
     }
 }
@@ -202,10 +203,12 @@ impl CommandProcessor<AppContext> for CmdEncrypt {
         if arguments.len() < 1 {
             return Err(Error::new_const(error::ErrorKind::InvalidArgument, &"Expected 1 argument"));
         }
-        let file_path = &arguments[0];
+        let raw_path = PathBuf::from(&ctx.cli_current_path).join(&arguments[0]);
+        let file_path = raw_path.absolutize()?;
+        log::info!(target: "CmdEncrypt", "Encrypting file: {}", file_path.display());
 
         try_encrypt(
-            file_path.as_ref(),
+            &file_path,
             match ctx.key_hash {
                 None => Err(Error::new_const(error::ErrorKind::InvalidArgument, &"No key hash")),
                 Some(v) => Ok(v)
@@ -226,10 +229,12 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
         if arguments.len() < 1 {
             return Err(Error::new_const(error::ErrorKind::InvalidArgument, &"Expected 1 argument"));
         }
-        let file_path = &arguments[0];
+        let raw_path = PathBuf::from(&ctx.cli_current_path).join(&arguments[0]);
+        let file_path = raw_path.absolutize()?;
+        log::info!(target: "CmdDecrypt", "Decrypting file: {}", file_path.display());
 
         try_decrypt(
-            file_path.as_ref(),
+            &file_path,
             match ctx.key_hash {
                 None => Err(Error::new_const(error::ErrorKind::InvalidArgument, &"No key hash")),
                 Some(v) => Ok(v)

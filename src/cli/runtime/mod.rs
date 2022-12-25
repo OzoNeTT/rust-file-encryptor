@@ -1,16 +1,19 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, LinkedList};
-use std::fs::read;
-use std::io;
+use std::fmt::Debug;
 use std::io::{Read, Write};
-use std::panic::resume_unwind;
-use std::str::from_utf8;
-use clap::command;
+use std::rc::{Rc, Weak};
+use std::string::ToString;
 use crate::error::Result;
 use console::{Key, Term};
+use crate::cli::runtime::key::OneLineProcessingContext;
+use crate::cli::runtime::vec_limit::VecLimited;
 
 pub mod confirm;
 pub mod util;
 pub mod command;
+pub mod vec_limit;
+pub mod key;
 
 
 pub enum ResultCode {
@@ -30,7 +33,7 @@ pub trait CommandProcessor<T> where T: Sized {
 
 pub struct CommandProcessorContext<T> {
     commands: HashMap<String, Box<dyn CommandProcessor<T>>>,
-    history: Vec<String>,
+    history: VecLimited<String>,
 }
 
 impl<T> CommandProcessorContext<T> {
@@ -39,7 +42,7 @@ impl<T> CommandProcessorContext<T> {
     pub fn new() -> Self {
         CommandProcessorContext {
             commands: HashMap::new(),
-            history: Vec::with_capacity(Self::MAX_HISTORY),
+            history: VecLimited::with_capacity(Self::MAX_HISTORY, Self::MAX_HISTORY),
         }
     }
 
@@ -78,129 +81,46 @@ impl<T> CommandProcessorContext<T> {
         term.write_str("> ")?;
         term.show_cursor()?;
 
-        let mut result: String = String::with_capacity(128_usize);
-        let mut hint: String = String::with_capacity(128_usize);
-
-        // TODO: encapsulate somehow
-        let mut key: Key;
-        let mut cursor_position: usize = 0_usize;
-        let mut history_position: usize = self.history.len();
+        let mut context: OneLineProcessingContext = OneLineProcessingContext::new(self.history.len());
 
         loop {
-            key = term.read_key()?;
-
-            match key {
-                Key::ArrowLeft => {
-                    if cursor_position > 0 {
-                        cursor_position -= 1;
-                    }
-                }
-                Key::ArrowRight => {
-                    if cursor_position < result.len() {
-                        cursor_position += 1;
-                    }
-                }
-                Key::ArrowUp => if history_position > 0 {
-                    history_position -= 1;
-                    result = self.history[history_position].clone();
-                    cursor_position = result.len();
-                    hint = "".to_string();
-                },
-                Key::ArrowDown => if history_position < self.history.len() {
-                    history_position += 1;
-                    if history_position == self.history.len() {
-                        result = "".to_string();
-                    } else {
-                        result = self.history[history_position].clone();
-                    }
-                    cursor_position = result.len();
-                    hint = "".to_string();
-                }
-                Key::Enter => break,
-                Key::Escape => {}
-                Key::Backspace => {
-                    if cursor_position > 0 {
-                        cursor_position -= 1;
-                        result.remove(cursor_position);
-                    }
-                }
-                Key::Home => {
-                    if cursor_position > 0 {
-                        cursor_position = 0;
-                    }
-                }
-                Key::End => {
-                    if cursor_position < result.len() {
-                        cursor_position = result.len() - 1;
-                    }
-                }
-                Key::Tab => {
-                    match self.line_to_args(&result[0..cursor_position]) {
-                        None => {}
-                        Some((cmd, args)) =>
-                            match self.get_processor_by_command(cmd.as_str()) {
-                                None => match self.get_command_hint(cmd.as_str()) {
-                                    None => {}
-                                    Some(cmd_hint) => {
-                                        let x = result.split(" ").skip(1).map(|s| s.to_string()).collect::<Vec<String>>().join(" ");
-                                        cursor_position = cmd_hint.len();
-                                        result = cmd_hint + " " + x.as_ref();
-                                    }
-                                },
-                                Some(processor) =>
-                                    match processor.get_hint(ctx, &args) {
-                                        None => { hint.clear() }
-                                        Some(s) => { hint = s }
-                                    }
-                            }
-                    };
-                }
-                Key::BackTab => {}
-                Key::Alt => {}
-                Key::Del => {
-                    if !result.is_empty() {
-                        result.remove(cursor_position);
-                    }
-                }
-                Key::Shift => {}
-                Key::Insert => {}
-                Key::PageUp => {}
-                Key::PageDown => {}
-                Key::Char(c) => {
-                    if result.len() == cursor_position {
-                        result.push(c);
-                    } else {
-                        result.insert(cursor_position, c);
-                    }
-                    cursor_position += 1;
-                }
-                _ => {}
-            }
-
-            if !hint.is_empty() {
+            let key = term.read_key()?;
+            context.process_key(ctx, self, key)?;
+            if context.is_last_hint_available() {
                 term.move_cursor_down(1)?;
                 term.clear_line()?;
                 term.clear_last_lines(1)?;
             } else {
                 term.clear_line()?;
             }
-            term.write_fmt(format_args!("> {}", result))?;
-            if !hint.is_empty() {
+            term.write_fmt(format_args!("> {}", context.result_to_string()))?;
+
+            if context.is_line_processed() {
+                if context.is_hint_available() {
+                    term.move_cursor_down(1)?;
+                    term.clear_line()?;
+                    term.move_cursor_up(1)?;
+                }
+                break;
+            }
+
+            if context.is_hint_available() {
+                let hint = context.get_hint();
                 term.write_fmt(format_args!("\n{}", hint))?;
                 term.move_cursor_left(hint.len())?;
                 term.move_cursor_up(1)?;
             }
-            term.move_cursor_left(2 + result.len())?;
-            term.move_cursor_right(2 + cursor_position)?;
+            term.move_cursor_left(2 + context.result.len())?;
+            term.move_cursor_right(2 + context.cursor_position)?;
         }
 
         term.write_line("")?;
-        result = result.trim().to_string();
-        self.history.push(result.clone());
+        let terimmed_string = context.result_to_string().trim().to_string();
+        if !terimmed_string.is_empty() {
+            self.history.push(context.result_to_string());
+        }
 
-        history_position = self.history.len();
-
-        match self.line_to_args(result.as_str()) {
+        match self.line_to_args(terimmed_string.as_str()) {
             None => {
                 // Empty command is OK
                 Ok(true)
@@ -218,3 +138,4 @@ impl<T> CommandProcessorContext<T> {
         }
     }
 }
+
