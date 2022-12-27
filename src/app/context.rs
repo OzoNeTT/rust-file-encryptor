@@ -1,8 +1,6 @@
 use std::path::PathBuf;
-use console::Term;
 use rpassword::prompt_password;
 use crate::cli::args::AppData;
-use crate::cli::runtime::CommandProcessorContext;
 use crate::{error, get_hash};
 use crate::cli::runtime::confirm::UserConfirm;
 
@@ -31,7 +29,7 @@ pub fn user_key_hash() -> error::Result<KeyHashType> {
         break password1;
     };
 
-    return Ok(get_hash(&key)?);
+    get_hash(&key)
 }
 
 pub fn set_context_key_hash(ctx: &mut AppContext) -> error::Result<()> {

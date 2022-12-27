@@ -58,14 +58,14 @@ impl OneLineProcessingContext {
 
     pub fn get_hint(&self) -> String {
         if !self.is_hint_available() {
-            return "".to_string();
+            "".to_string()
+        } else {
+            self.hint[1].to_string()
         }
-
-        return self.hint[1].to_string();
     }
 
     pub fn get_last_hint(&self) -> &String {
-        return &self.hint[0];
+        &self.hint[0]
     }
 
     pub fn result_to_string(&self) -> String {
@@ -107,7 +107,7 @@ impl OneLineProcessingContext {
             None => match ctx.get_command_hint(cmd.as_str()) {
                 None => Ok(true),
                 Some(cmd_hint) => {
-                    let x = self.result_to_string().split(" ").skip(1).map(|s| s.to_string()).collect::<Vec<String>>().join(" ");
+                    let x = self.result_to_string().split(' ').skip(1).map(|s| s.to_string()).collect::<Vec<String>>().join(" ");
                     self.cursor_position = cmd_hint.len();
                     let result_string = cmd_hint + " " + x.as_ref();
                     self.result = result_string.chars().collect();
@@ -132,10 +132,12 @@ impl OneLineProcessingContext {
 impl<T> KeyProcessor<T> for OneLineProcessingContext {
     fn unknown(&mut self, _full_ctx: &mut T, _ctx: &mut CommandProcessorContext<T>) -> Result<bool>
     {
+        // TODO
+        log::debug!(target: "cli/runtime/key OneLineProcessingContext", "unknown");
         Ok(true)
     }
 
-    fn unknown_esc_seq(&mut self, _full_ctx: &mut T, _ctx: &mut CommandProcessorContext<T>, seq: Vec<char>) -> Result<bool>
+    fn unknown_esc_seq(&mut self, _full_ctx: &mut T, _ctx: &mut CommandProcessorContext<T>, _seq: Vec<char>) -> Result<bool>
     {
         Ok(true)
     }
@@ -218,7 +220,7 @@ impl<T> KeyProcessor<T> for OneLineProcessingContext {
     {
         let option = ctx.line_to_args(self.result_to_string().as_str());
         match option {
-            None => return Ok(true),
+            None => Ok(true),
             Some(tuple) => self.tab_hint(full_ctx, ctx, tuple)
         }
     }

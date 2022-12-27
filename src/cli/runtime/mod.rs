@@ -1,16 +1,12 @@
-use std::cell::RefCell;
-use std::collections::{HashMap, LinkedList};
-use std::fmt::Debug;
-use std::io::{Read, Write};
-use std::rc::{Rc, Weak};
+use std::collections::{HashMap};
+use std::io::{Write};
 use std::string::ToString;
 use crate::error::Result;
-use console::{Key, Term};
+use console::{Term};
 use crate::cli::runtime::key::OneLineProcessingContext;
 use crate::cli::runtime::vec_limit::VecLimited;
 
 pub mod confirm;
-pub mod util;
 pub mod command;
 pub mod vec_limit;
 pub mod key;
@@ -24,8 +20,8 @@ pub enum ResultCode {
 pub trait CommandProcessor<T> where T: Sized {
     fn get_command(&self) -> Vec<&'static str>;
     fn new() -> Self where Self: Sized;
-    fn process_command(&self, ctx: &mut T, cmd_context: &CommandProcessorContext<T>, command: &str, arguments: &Vec<String>) -> Result<()>;
-    fn get_hint(&self, ctx: &mut T, arguments: &Vec<String>) -> Option<String>;
+    fn process_command(&self, ctx: &mut T, cmd_context: &CommandProcessorContext<T>, command: &str, arguments: &[String]) -> Result<()>;
+    fn get_hint(&self, ctx: &mut T, arguments: &[String]) -> Option<String>;
 
     /// https://users.rust-lang.org/t/solved-is-it-possible-to-clone-a-boxed-trait-object/1714/6
     fn box_clone(&self) -> Box<dyn CommandProcessor<T>>;
@@ -34,6 +30,12 @@ pub trait CommandProcessor<T> where T: Sized {
 pub struct CommandProcessorContext<T> {
     commands: HashMap<String, Box<dyn CommandProcessor<T>>>,
     history: VecLimited<String>,
+}
+
+impl<T> Default for CommandProcessorContext<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T> CommandProcessorContext<T> {
@@ -54,8 +56,11 @@ impl<T> CommandProcessorContext<T> {
         &self.commands
     }
 
-    pub fn get_processor_by_command(&self, command: &str) -> Option<&Box<dyn CommandProcessor<T>>> {
-        self.commands.get(command)
+    pub fn get_processor_by_command(&self, command: &str) -> Option<&dyn CommandProcessor<T>> {
+        match self.commands.get(command) {
+            None => None,
+            Some(v) => Some(v.as_ref())
+        }
     }
 
     pub fn get_command_hint(&self, command_part: &str) -> Option<String> {
@@ -69,12 +74,12 @@ impl<T> CommandProcessorContext<T> {
     }
 
     pub fn line_to_args(&self, line: &str) -> Option<(String, Vec<String>)> {
-        let mut all_args: Vec<String> = line.split(" ").map(|v| v.to_string()).collect();
+        let mut all_args: Vec<String> = line.split(' ').map(|v| v.to_string()).collect();
         if all_args.is_empty() {
             return None;
         }
         let command: String = all_args.remove(0);
-        return Some((command, all_args));
+        Some((command, all_args))
     }
 
     pub fn lines_processing(&mut self, ctx: &mut T, term: &mut Term) -> Result<bool> {
@@ -131,7 +136,7 @@ impl<T> CommandProcessorContext<T> {
                     Ok(false)
                 }
                 Some(p) => {
-                    p.process_command(ctx, &self, cmd.as_str(), &args)?;
+                    p.process_command(ctx, self, cmd.as_str(), &args)?;
                     Ok(true)
                 }
             }

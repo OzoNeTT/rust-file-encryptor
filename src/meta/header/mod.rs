@@ -73,9 +73,9 @@ impl MetaHeader {
     pub fn to_bytes(&self) -> [u8; Self::size()] {
         let mut result: [u8; Self::size()] = [0u8; Self::size()];
 
-        (&mut result[0..META_MAGIC_SIZE]).clone_from_slice(&self.magic);
+        result[0..META_MAGIC_SIZE].clone_from_slice(&self.magic);
         result[META_MAGIC_SIZE] = self.version;
-        (&mut result[8..]).clone_from_slice(&self.size.to_le_bytes());
+        result[8..].clone_from_slice(&self.size.to_le_bytes());
 
         log::trace!(target: "meta/header MetaHeader to_bytes", "Result: {result:?}");
         result

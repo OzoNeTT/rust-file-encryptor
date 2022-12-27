@@ -49,6 +49,10 @@ impl<T> VecLimited<T> {
         self.vec.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.vec.is_empty()
+    }
+
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.vec.iter()
     }

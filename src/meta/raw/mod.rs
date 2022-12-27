@@ -64,7 +64,7 @@ impl RawMeta {
         let mut result: [u8; Self::size()] = [0u8; Self::size()];
         result[0] = self.cipher_kind.to_u8();
 
-        (&mut result[Self::NONCE_BYTE_INDEX..]).clone_from_slice(&self.nonce);
+        result[Self::NONCE_BYTE_INDEX..].clone_from_slice(&self.nonce);
 
         log::trace!(target: "meta/raw RawMeta to_bytes", "Result: {result:?}");
         result

@@ -24,5 +24,5 @@ pub fn get_arguments<I, T>(itr: I) -> AppData
         I: IntoIterator<Item=T>,
         T: Into<OsString> + Clone,
 {
-    return AppData::parse_from(itr);
+    AppData::parse_from(itr)
 }

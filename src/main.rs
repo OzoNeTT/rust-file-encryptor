@@ -4,13 +4,10 @@ use path_absolutize::*;
 use rpassword::prompt_password;
 use std::fs::remove_file;
 use std::{env, io};
-use std::io::{Read, Write};
 use std::path::Path;
-use file_encryptor::app::context::{AppContext, get_context_preview, set_context_key_hash, user_key_hash};
+use file_encryptor::app::context::{AppContext, get_context_preview, user_key_hash};
 use file_encryptor::cli::args::{get_arguments};
-use file_encryptor::cli::runtime::{CommandProcessor, CommandProcessorContext};
-use file_encryptor::cli::runtime::confirm::UserConfirm;
-use file_encryptor::cli::runtime::command as cmd;
+use file_encryptor::cli::runtime::{CommandProcessorContext};
 use file_encryptor::cli::runtime::command::register_all_commands;
 
 /// Log level is being controlled by the ENV variable RUST_LOG
@@ -35,8 +32,6 @@ fn cli_mode(mut ctx: AppContext, mut cmd_context: CommandProcessorContext<AppCon
             }
         };
         log::debug!(target: "app_main", "Got line: {line}");
-
-        // cmd_context.
     }
 
     Ok(())
@@ -45,13 +40,13 @@ fn cli_mode(mut ctx: AppContext, mut cmd_context: CommandProcessorContext<AppCon
 fn main() -> error::Result<()> {
     init_logger();
     let mut cmd_context: CommandProcessorContext<AppContext> = CommandProcessorContext::new();
-    let mut term = console::Term::stdout();
+    let term = console::Term::stdout();
     let data = get_arguments(&mut env::args_os());
     let mut ctx = AppContext {
         cli_current_path: Path::new(&data.filepath).absolutize()?.to_path_buf(),
         cli_exit: false,
         key_hash: None,
-        data: data,
+        data,
         term,
     };
     register_all_commands(&mut cmd_context);
