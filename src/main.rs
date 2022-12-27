@@ -1,14 +1,16 @@
+use file_encryptor::app::context::{
+    get_context_preview, user_key_hash, AppContext,
+};
+use file_encryptor::cli::args::get_arguments;
+use file_encryptor::cli::runtime::command::register_all_commands;
+use file_encryptor::cli::runtime::CommandProcessorContext;
 use file_encryptor::encryption::try_parse;
 use file_encryptor::{error, get_hash, try_decrypt, try_encrypt};
 use path_absolutize::*;
 use rpassword::prompt_password;
 use std::fs::remove_file;
-use std::{env, io};
 use std::path::Path;
-use file_encryptor::app::context::{AppContext, get_context_preview, user_key_hash};
-use file_encryptor::cli::args::{get_arguments};
-use file_encryptor::cli::runtime::{CommandProcessorContext};
-use file_encryptor::cli::runtime::command::register_all_commands;
+use std::{env, io};
 
 /// Log level is being controlled by the ENV variable RUST_LOG
 ///
@@ -22,9 +24,14 @@ fn init_logger() {
     pretty_env_logger::init();
 }
 
-fn cli_mode(mut ctx: AppContext, mut cmd_context: CommandProcessorContext<AppContext>) -> error::Result<()> {
+fn cli_mode(
+    mut ctx: AppContext,
+    mut cmd_context: CommandProcessorContext<AppContext>,
+) -> error::Result<()> {
     while !ctx.cli_exit {
-        let line = match cmd_context.lines_processing(&mut ctx, &mut console::Term::stdout()) {
+        let line = match cmd_context
+            .lines_processing(&mut ctx, &mut console::Term::stdout())
+        {
             Ok(v) => v,
             Err(e) => {
                 log::error!(target: "app_main", "Error: {e}");
@@ -39,11 +46,14 @@ fn cli_mode(mut ctx: AppContext, mut cmd_context: CommandProcessorContext<AppCon
 
 fn main() -> error::Result<()> {
     init_logger();
-    let mut cmd_context: CommandProcessorContext<AppContext> = CommandProcessorContext::new();
+    let mut cmd_context: CommandProcessorContext<AppContext> =
+        CommandProcessorContext::new();
     let term = console::Term::stdout();
     let data = get_arguments(&mut env::args_os());
     let mut ctx = AppContext {
-        cli_current_path: Path::new(&data.filepath).absolutize()?.to_path_buf(),
+        cli_current_path: Path::new(&data.filepath)
+            .absolutize()?
+            .to_path_buf(),
         cli_exit: false,
         key_hash: None,
         data,
@@ -52,7 +62,9 @@ fn main() -> error::Result<()> {
     register_all_commands(&mut cmd_context);
 
     if ctx.data.key.is_some() {
-        ctx.key_hash = Some(get_hash(ctx.data.key.unwrap().as_str())?);
+        ctx.key_hash = Some(get_hash(
+            ctx.data.key.unwrap().as_str(),
+        )?);
         ctx.data.key = None;
     }
 
@@ -97,7 +109,10 @@ fn main() -> error::Result<()> {
         }
 
         // to encrypt
-        try_encrypt(file_path.as_ref(), ctx.key_hash.unwrap())?;
+        try_encrypt(
+            file_path.as_ref(),
+            ctx.key_hash.unwrap(),
+        )?;
     }
 
     if !ctx.data.keep_original && !preview {

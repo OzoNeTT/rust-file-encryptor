@@ -1,8 +1,8 @@
-use std::path::PathBuf;
-use rpassword::prompt_password;
 use crate::cli::args::AppData;
-use crate::{error, get_hash};
 use crate::cli::runtime::confirm::UserConfirm;
+use crate::{error, get_hash};
+use rpassword::prompt_password;
+use std::path::PathBuf;
 
 pub type KeyHashType = [u8; 32];
 
@@ -39,9 +39,7 @@ pub fn set_context_key_hash(ctx: &mut AppContext) -> error::Result<()> {
 
 pub fn get_context_preview(ctx: &AppContext) -> error::Result<bool> {
     let val = match ctx.data.preview {
-        Some(v) => {
-            v
-        }
+        Some(v) => v,
         None => {
             log::debug!(target: "app_main","Preview arg is undefined. Asking for preview");
             ctx.term.clone().user_confirm_default(

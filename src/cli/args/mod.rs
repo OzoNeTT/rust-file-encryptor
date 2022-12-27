@@ -1,5 +1,5 @@
-use std::ffi::OsString;
 use clap::Parser;
+use std::ffi::OsString;
 
 #[derive(Parser, Debug, Clone)]
 pub struct AppData {
@@ -20,9 +20,9 @@ pub struct AppData {
 }
 
 pub fn get_arguments<I, T>(itr: I) -> AppData
-    where
-        I: IntoIterator<Item=T>,
-        T: Into<OsString> + Clone,
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString> + Clone,
 {
     AppData::parse_from(itr)
 }
