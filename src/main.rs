@@ -49,7 +49,7 @@ fn main() -> error::Result<()> {
     let mut cmd_context: CommandProcessorContext<AppContext> =
         CommandProcessorContext::new();
     let term = console::Term::stdout();
-    let data = get_arguments(&mut env::args_os());
+    let data = get_arguments(env::args_os());
     let mut ctx = AppContext {
         cli_current_path: Path::new(&data.filepath)
             .absolutize()?
