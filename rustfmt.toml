@@ -1,0 +1,6 @@
+max_width       = 80
+newline_style   = "Unix"
+fn_call_width   = 40
+chain_width     = 40
+fn_args_layout  = "Tall"
+edition         = "2021"

@@ -26,7 +26,10 @@ impl OpenOrCreate for File {
         if path.exists() {
             // TODO: needed to loop for encryption in dir
             if !path.is_file() {
-                return Err(io::Error::new(ErrorKind::InvalidData, ""));
+                return Err(io::Error::new(
+                    ErrorKind::InvalidData,
+                    "",
+                ));
             }
         }
 
@@ -57,11 +60,17 @@ impl OpenOrCreate for File {
     }
 
     fn open_write(path: &Path) -> io::Result<File> {
-        return OpenOptions::new().write(true).append(false).open(path);
+        return OpenOptions::new()
+            .write(true)
+            .append(false)
+            .open(path);
     }
 
     fn open_append(path: &Path) -> io::Result<File> {
-        return OpenOptions::new().write(true).append(true).open(path);
+        return OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path);
     }
 }
 
@@ -77,7 +86,10 @@ pub trait GetFileDirectory {
 impl GetFileDirectory for Path {
     fn file_dir(&self) -> io::Result<&Self> {
         let file_dir = self.parent().ok_or_else(|| {
-            io::Error::new(ErrorKind::InvalidData, "Unable to get file directory")
+            io::Error::new(
+                ErrorKind::InvalidData,
+                "Unable to get file directory",
+            )
         })?;
 
         if !file_dir.is_dir() {
