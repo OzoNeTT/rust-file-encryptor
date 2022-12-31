@@ -11,7 +11,7 @@ pub mod meta;
 use arrayref::array_ref;
 use std::convert::TryInto;
 use std::ffi::OsStr;
-use std::fs::File;
+use std::fs::{File, remove_file};
 use std::io::Write;
 use std::path::Path;
 use std::{fs, io, iter};
@@ -58,12 +58,6 @@ pub fn try_decrypt(
                 + ".tmp-enc",
         );
 
-        if target_file_path.exists() {
-            return Err(error::Error::new_file_already_exist(
-                target_file_path.to_str().unwrap_or(""),
-            ));
-        }
-
         let target: Box<dyn Write> = if preview {
             println!("\n----------------- [ cut here ] -----------------");
             Box::from(io::stdout()) as Box<dyn Write>
@@ -88,6 +82,14 @@ pub fn try_decrypt(
             &hash_from_key,
             &raw_meta.nonce,
         )?;
+
+        let real_target = file_path.with_file_name(&enc_meta.filename);
+        if real_target.exists() {
+            remove_file(target_file_path)?;
+            return Err(error::Error::new_file_already_exist(
+                real_target.to_str().unwrap_or(""),
+            ));
+        }
         if preview {
             println!("\n------------ [ end of the content ] ------------\n");
         }

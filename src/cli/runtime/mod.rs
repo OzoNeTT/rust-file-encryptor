@@ -175,16 +175,16 @@ impl<T> CommandProcessorContext<T> {
         }
 
         term.write_line("")?;
-        let terimmed_string = context
+        let trimmed_string = context
             .result_to_string()
             .trim()
             .to_string();
-        if !terimmed_string.is_empty() {
+        if !trimmed_string.is_empty() {
             self.history
                 .push(context.result_to_string());
         }
 
-        match self.line_to_args(terimmed_string.as_str()) {
+        match self.line_to_args(trimmed_string.as_str()) {
             None => {
                 // Empty command is OK
                 Ok(true)

@@ -4,7 +4,7 @@ use crate::app::context::{
 use crate::cli::runtime::{
     CommandProcessor, CommandProcessorContext, HintOption,
 };
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorKind, Result};
 use crate::{error, try_decrypt, try_encrypt};
 use path_absolutize::Absolutize;
 use std::ffi::OsStr;
@@ -469,6 +469,9 @@ impl CommandProcessor<AppContext> for CmdEncrypt {
         let raw_path = PathBuf::from(&ctx.cli_current_path).join(&arguments[0]);
         let file_path = raw_path.absolutize()?;
 
+        if !file_path.is_file() {
+            return Err(Error::new(ErrorKind::FileNotFound, format!("Path '{}' is not a file", file_path.display())));
+        }
         let out_path = match arguments.get(1) {
             None => None,
             Some(value) => {
@@ -539,6 +542,9 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
         log::info!(target: "CmdDecrypt", "Decrypting file: {}", file_path.display());
 
         let preview = get_context_preview(ctx)?;
+        if !file_path.is_file() {
+            return Err(Error::new(ErrorKind::FileNotFound, format!("Path '{}' is not a file", file_path.display())));
+        }
         try_decrypt(
             &file_path,
             match ctx.key_hash {
@@ -561,11 +567,13 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
 pub fn register_all_commands(
     cmd_context: &mut CommandProcessorContext<AppContext>,
 ) {
-    let commands: [Box<dyn CommandProcessor<AppContext>>; 13] = [
+    let commands: [Box<dyn CommandProcessor<AppContext>>; 15] = [
         Box::from(CmdSetKey::new()),
         Box::from(CmdUnsetKey::new()),
         Box::from(CmdSetPreview::new()),
         Box::from(CmdUnsetPreview::new()),
+        Box::from(CmdSetKeepOriginal::new()),
+        Box::from(CmdUnsetKeepOriginal::new()),
         Box::from(CmdGetAllParameters::new()),
         Box::from(CmdEncrypt::new()),
         Box::from(CmdDecrypt::new()),
