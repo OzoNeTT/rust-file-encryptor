@@ -1,5 +1,5 @@
 use crate::cli::runtime::vec_limit::VecLimited;
-use crate::cli::runtime::CommandProcessorContext;
+use crate::cli::runtime::{CommandProcessorContext, HintOption};
 use crate::error::Result;
 use console::Key;
 
@@ -199,26 +199,44 @@ impl OneLineProcessingContext {
             None => match ctx.get_command_hint(cmd.as_str()) {
                 None => Ok(true),
                 Some(cmd_hint) => {
-                    let x = self
+                    let mut x = self
                         .result_to_string()
                         .split(' ')
-                        .skip(1)
                         .map(|s| s.to_string())
-                        .collect::<Vec<String>>()
-                        .join(" ");
-                    self.cursor_position = cmd_hint.len();
-                    let result_string = cmd_hint + " " + x.as_ref();
-                    self.result = result_string.chars().collect();
+                        .collect::<Vec<String>>();
+                    x[0] = cmd_hint;
+                    self.cursor_position = x[0].len();
+                    self.result = x.join(" ").chars().collect();
                     Ok(true)
                 }
             },
             Some(processor) => match processor.get_hint(full_ctx, &args) {
-                None => {
+                HintOption::None => {
                     self.hint.push("".to_string());
                     Ok(true)
                 }
-                Some(s) => {
+                HintOption::Line(s) => {
                     self.hint.push(s);
+                    Ok(true)
+                }
+                HintOption::Exact(s, position) => {
+                    let mut x = self
+                        .result_to_string()
+                        .split(' ')
+                        .map(|s| s.to_string())
+                        .collect::<Vec<String>>();
+                    if x.len() <= position {
+                        return Ok(true);
+                    }
+
+                    x[position] = s;
+                    self.cursor_position = x
+                        .iter()
+                        .take(position + 1)
+                        .map(|s| s.len())
+                        .reduce(|p, n| p + n + 1usize)
+                        .unwrap_or(0);
+                    self.result = x.join(" ").chars().collect();
                     Ok(true)
                 }
             },

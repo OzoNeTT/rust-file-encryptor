@@ -108,9 +108,14 @@ pub fn try_decrypt(
 
 pub fn try_encrypt(
     file_path: &Path,
+    out_file_path: Option<&Path>,
     hash_from_key: [u8; 32],
 ) -> error::Result<()> {
-    let target_file_path = &file_path.with_extension("enc");
+    let fallback_target_file_path = file_path.with_extension("enc");
+    let target_file_path = match out_file_path {
+        None => fallback_target_file_path.as_path(),
+        Some(p) => p,
+    };
 
     println!("Target file path: {target_file_path:?}");
 

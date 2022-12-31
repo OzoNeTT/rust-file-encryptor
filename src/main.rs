@@ -21,7 +21,10 @@ use std::{env, io};
 /// - debug
 /// - trace
 fn init_logger() {
-    pretty_env_logger::init();
+    use log::LevelFilter;
+    pretty_env_logger::formatted_builder()
+        .filter_level(LevelFilter::Info)
+        .init();
 }
 
 fn cli_mode(
@@ -60,6 +63,12 @@ fn main() -> error::Result<()> {
         term,
     };
     register_all_commands(&mut cmd_context);
+
+    ctrlc::set_handler(move || {
+        // Do nothing
+    })
+    .map_err(|e| error::Error::new(error::ErrorKind::OtherError, e))?;
+    log::info!(target: "app_main", "Use `exit` command to exit, `help` to get help\n");
 
     if ctx.data.key.is_some() {
         ctx.key_hash = Some(get_hash(
@@ -111,6 +120,7 @@ fn main() -> error::Result<()> {
         // to encrypt
         try_encrypt(
             file_path.as_ref(),
+            None,
             ctx.key_hash.unwrap(),
         )?;
     }

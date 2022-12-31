@@ -1,11 +1,16 @@
 use crate::app::context::{
     get_context_preview, set_context_key_hash, AppContext,
 };
-use crate::cli::runtime::{CommandProcessor, CommandProcessorContext};
+use crate::cli::runtime::{
+    CommandProcessor, CommandProcessorContext, HintOption,
+};
 use crate::error::{Error, Result};
 use crate::{error, try_decrypt, try_encrypt};
 use path_absolutize::Absolutize;
-use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::fs;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 macro_rules! command_processor_template {
     ($($name: tt),+) => {
@@ -28,8 +33,8 @@ macro_rules! command_processor_nohint {
             &self,
             _ctx: &mut AppContext,
             _arguments: &[String],
-        ) -> Option<String> {
-            None
+        ) -> HintOption<String> {
+            HintOption::None
         }
     };
 }
@@ -39,24 +44,61 @@ macro_rules! command_processor_filehint {
             &self,
             ctx: &mut AppContext,
             arguments: &[String],
-        ) -> Option<String> {
+        ) -> HintOption<String> {
             let begin_with = if arguments.is_empty() {
                 ""
             } else {
                 &arguments[0].as_str()
             };
+            let begin_path = PathBuf::from(begin_with);
+            let file_name = if !begin_path.is_dir() {
+                begin_path
+                    .file_name()
+                    .unwrap_or(OsStr::new(""))
+                    .to_os_string()
+                    .into_string()
+                    .unwrap_or("".to_string())
+            } else {
+                "".to_string()
+            };
+            let begin_dir_path = get_path_dir(&begin_path);
+            let dir_path =
+                PathBuf::from(&ctx.cli_current_path).join(&begin_dir_path);
 
-            // TODO: result here!
-            let files: Vec<String> = std::fs::read_dir(&ctx.cli_current_path)
+            let mut files: Vec<String> = fs::read_dir(&dir_path)
                 .expect("Cannot read the directory")
                 .filter_map(|s| s.ok())
                 .map(|s| s.file_name())
                 .into_iter()
                 .filter_map(|s| s.into_string().ok())
-                .filter(|s| s.starts_with(begin_with))
+                .filter(|s| s.starts_with(&file_name))
                 .collect();
 
-            Some(files.join(" "))
+            if files.len() == 1 {
+                let hint = files.remove(0);
+                let hint_path = begin_dir_path
+                    .join(hint)
+                    .to_str()
+                    .unwrap_or("")
+                    .to_string();
+                HintOption::Exact(hint_path, 1)
+            } else {
+                HintOption::Line(files.join(" "))
+            }
+        }
+    };
+}
+macro_rules! command_processor_nohelp_args {
+    () => {
+        fn get_args_help(&self) -> &'static str {
+            ""
+        }
+    };
+}
+macro_rules! command_processor_help_args {
+    ($hint: tt) => {
+        fn get_args_help(&self) -> &'static str {
+            $hint
         }
     };
 }
@@ -67,6 +109,7 @@ pub struct CmdSetKey {}
 impl CommandProcessor<AppContext> for CmdSetKey {
     command_processor_template!("set-key");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -86,6 +129,7 @@ pub struct CmdUnsetKey {}
 impl CommandProcessor<AppContext> for CmdUnsetKey {
     command_processor_template!("unset-key");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -105,6 +149,7 @@ pub struct CmdSetPreview {}
 impl CommandProcessor<AppContext> for CmdSetPreview {
     command_processor_template!("set-preview");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -124,6 +169,7 @@ pub struct CmdUnsetPreview {}
 impl CommandProcessor<AppContext> for CmdUnsetPreview {
     command_processor_template!("unset-preview");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -143,6 +189,7 @@ pub struct CmdGetAllParameters {}
 impl CommandProcessor<AppContext> for CmdGetAllParameters {
     command_processor_template!("get-all");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -185,6 +232,7 @@ pub struct CmdHelp {}
 impl CommandProcessor<AppContext> for CmdHelp {
     command_processor_template!("help");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -195,8 +243,14 @@ impl CommandProcessor<AppContext> for CmdHelp {
     ) -> Result<()> {
         cmd_context
             .get_all_command_processors()
-            .keys()
-            .try_for_each(|s| ctx.term.write_line(s))?;
+            .iter()
+            .try_for_each(|(s, p)| {
+                ctx.term.write_fmt(format_args!(
+                    "{}  {}\n",
+                    s,
+                    p.get_args_help()
+                ))
+            })?;
         Ok(())
     }
 }
@@ -207,6 +261,7 @@ pub struct CmdPwd {}
 impl CommandProcessor<AppContext> for CmdPwd {
     command_processor_template!("pwd");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -232,6 +287,7 @@ pub struct CmdHistory {}
 impl CommandProcessor<AppContext> for CmdHistory {
     command_processor_template!("history");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -254,6 +310,7 @@ pub struct CmdExit {}
 impl CommandProcessor<AppContext> for CmdExit {
     command_processor_template!("exit");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -273,6 +330,7 @@ pub struct CmdLs {}
 impl CommandProcessor<AppContext> for CmdLs {
     command_processor_template!("ls");
     command_processor_nohint!();
+    command_processor_nohelp_args!();
 
     fn process_command(
         &self,
@@ -292,12 +350,26 @@ impl CommandProcessor<AppContext> for CmdLs {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CmdEncrypt {}
+pub fn get_path_dir(path: &Path) -> &Path {
+    match path.file_name() {
+        None => path,
+        Some(_) => {
+            if path.is_dir() {
+                path
+            } else {
+                path.parent().unwrap_or(path)
+            }
+        }
+    }
+}
 
-impl CommandProcessor<AppContext> for CmdEncrypt {
-    command_processor_template!("e", "encrypt");
+#[derive(Debug, Clone)]
+pub struct CmdCd {}
+
+impl CommandProcessor<AppContext> for CmdCd {
+    command_processor_template!("cd");
     command_processor_filehint!();
+    command_processor_help_args!("DIR_PATH");
 
     fn process_command(
         &self,
@@ -312,12 +384,77 @@ impl CommandProcessor<AppContext> for CmdEncrypt {
                 &"Expected 1 argument",
             ));
         }
+
+        let new_path = PathBuf::from(&ctx.cli_current_path).join(&arguments[0]);
+        if !fs::metadata(&new_path)?.is_dir() {
+            return Err(Error::new(
+                error::ErrorKind::InvalidArgument,
+                format!(
+                    "Path '{}' is not a directory",
+                    new_path.display()
+                ),
+            ));
+        }
+        ctx.cli_current_path = new_path
+            .absolutize()
+            .map(|v| v.to_path_buf())
+            .unwrap_or(new_path);
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdEncrypt {}
+
+impl CommandProcessor<AppContext> for CmdEncrypt {
+    command_processor_template!("e", "encrypt");
+    command_processor_filehint!();
+    command_processor_help_args!("PLAIN_FILE_NAME [OUT_FILE_NAME]");
+
+    fn process_command(
+        &self,
+        ctx: &mut AppContext,
+        _cmd_context: &CommandProcessorContext<AppContext>,
+        _command: &str,
+        arguments: &[String],
+    ) -> Result<()> {
+        if arguments.is_empty() {
+            return Err(Error::new_const(
+                error::ErrorKind::InvalidArgument,
+                &"Expected 1 or 2 arguments",
+            ));
+        }
         let raw_path = PathBuf::from(&ctx.cli_current_path).join(&arguments[0]);
         let file_path = raw_path.absolutize()?;
-        log::info!(target: "CmdEncrypt", "Encrypting file: {}", file_path.display());
+
+        let out_path = match arguments.get(1) {
+            None => None,
+            Some(value) => {
+                let r_path = PathBuf::from(&ctx.cli_current_path).join(value);
+                Some(r_path.absolutize()?.to_path_buf())
+            }
+        };
+        match &out_path {
+            None => log::info!(
+                target: "CmdEncrypt",
+                "Encrypting file: {}",
+                file_path.display()
+            ),
+            Some(path) => log::info!(
+                target: "CmdEncrypt",
+                "Encrypting file: {} -> {}",
+                file_path.display(),
+                path.display()
+            ),
+        };
 
         try_encrypt(
             &file_path,
+            match &out_path {
+                None => None,
+                Some(p) => Some(p),
+            },
             match ctx.key_hash {
                 None => Err(Error::new_const(
                     error::ErrorKind::InvalidArgument,
@@ -336,6 +473,7 @@ pub struct CmdDecrypt {}
 impl CommandProcessor<AppContext> for CmdDecrypt {
     command_processor_template!("d", "decrypt");
     command_processor_filehint!();
+    command_processor_help_args!("ENCRYPTED_FILE_NAME");
 
     fn process_command(
         &self,
@@ -372,7 +510,7 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
 pub fn register_all_commands(
     cmd_context: &mut CommandProcessorContext<AppContext>,
 ) {
-    let commands: [Box<dyn CommandProcessor<AppContext>>; 12] = [
+    let commands: [Box<dyn CommandProcessor<AppContext>>; 13] = [
         Box::from(CmdSetKey::new()),
         Box::from(CmdUnsetKey::new()),
         Box::from(CmdSetPreview::new()),
@@ -382,6 +520,7 @@ pub fn register_all_commands(
         Box::from(CmdDecrypt::new()),
         Box::from(CmdHistory::new()),
         Box::from(CmdLs::new()),
+        Box::from(CmdCd::new()),
         Box::from(CmdPwd::new()),
         Box::from(CmdHelp::new()),
         Box::from(CmdExit::new()),
