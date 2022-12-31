@@ -58,6 +58,12 @@ pub fn try_decrypt(
                 + ".tmp-enc",
         );
 
+        if target_file_path.exists() {
+            return Err(error::Error::new_file_already_exist(
+                target_file_path.to_str().unwrap_or(""),
+            ));
+        }
+
         let target: Box<dyn Write> = if preview {
             println!("\n----------------- [ cut here ] -----------------");
             Box::from(io::stdout()) as Box<dyn Write>

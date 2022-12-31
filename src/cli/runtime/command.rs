@@ -9,6 +9,7 @@ use crate::{error, try_decrypt, try_encrypt};
 use path_absolutize::Absolutize;
 use std::ffi::OsStr;
 use std::fs;
+use std::fs::remove_file;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -179,6 +180,46 @@ impl CommandProcessor<AppContext> for CmdUnsetPreview {
         _arguments: &[String],
     ) -> Result<()> {
         ctx.data.preview = Some(false);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdSetKeepOriginal {}
+
+impl CommandProcessor<AppContext> for CmdSetKeepOriginal {
+    command_processor_template!("set-keep-original");
+    command_processor_nohint!();
+    command_processor_nohelp_args!();
+
+    fn process_command(
+        &self,
+        ctx: &mut AppContext,
+        _cmd_context: &CommandProcessorContext<AppContext>,
+        _command: &str,
+        _arguments: &[String],
+    ) -> Result<()> {
+        ctx.data.keep_original = true;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdUnsetKeepOriginal {}
+
+impl CommandProcessor<AppContext> for CmdUnsetKeepOriginal {
+    command_processor_template!("unset-keep-original");
+    command_processor_nohint!();
+    command_processor_nohelp_args!();
+
+    fn process_command(
+        &self,
+        ctx: &mut AppContext,
+        _cmd_context: &CommandProcessorContext<AppContext>,
+        _command: &str,
+        _arguments: &[String],
+    ) -> Result<()> {
+        ctx.data.keep_original = false;
         Ok(())
     }
 }
@@ -463,6 +504,11 @@ impl CommandProcessor<AppContext> for CmdEncrypt {
                 Some(v) => Ok(v),
             }?,
         )?;
+
+        if !ctx.data.keep_original {
+            log::info!("Original file '{}' will be removed", file_path.display());
+            remove_file(file_path.as_ref())?;
+        }
         Ok(())
     }
 }
@@ -492,6 +538,7 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
         let file_path = raw_path.absolutize()?;
         log::info!(target: "CmdDecrypt", "Decrypting file: {}", file_path.display());
 
+        let preview = get_context_preview(ctx)?;
         try_decrypt(
             &file_path,
             match ctx.key_hash {
@@ -501,8 +548,12 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
                 )),
                 Some(v) => Ok(v),
             }?,
-            get_context_preview(ctx)?,
+            preview,
         )?;
+        if !ctx.data.keep_original && !preview {
+            log::info!("Original file '{}' will be removed", file_path.display());
+            remove_file(file_path.as_ref())?;
+        }
         Ok(())
     }
 }

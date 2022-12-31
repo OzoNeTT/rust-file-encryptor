@@ -125,6 +125,7 @@ fn main() -> error::Result<()> {
         )?;
     }
 
+    // TODO: encapsulate
     if !ctx.data.keep_original && !preview {
         remove_file(file_path.as_ref())?;
     }
