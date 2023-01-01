@@ -11,7 +11,7 @@ pub mod meta;
 use arrayref::array_ref;
 use std::convert::TryInto;
 use std::ffi::OsStr;
-use std::fs::{File, remove_file};
+use std::fs::{remove_file, File};
 use std::io::Write;
 use std::path::Path;
 use std::{fs, io, iter};

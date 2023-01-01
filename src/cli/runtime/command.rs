@@ -4,6 +4,7 @@ use crate::app::context::{
 use crate::cli::runtime::{
     CommandProcessor, CommandProcessorContext, HintOption,
 };
+use crate::encryption::{try_detect_file_type, DetectedFileType};
 use crate::error::{Error, ErrorKind, Result};
 use crate::{error, try_decrypt, try_encrypt};
 use path_absolutize::Absolutize;
@@ -323,6 +324,26 @@ impl CommandProcessor<AppContext> for CmdPwd {
 }
 
 #[derive(Debug, Clone)]
+pub struct CmdClear {}
+
+impl CommandProcessor<AppContext> for CmdClear {
+    command_processor_template!("c", "clear");
+    command_processor_nohint!();
+    command_processor_nohelp_args!();
+
+    fn process_command(
+        &self,
+        ctx: &mut AppContext,
+        _cmd_context: &CommandProcessorContext<AppContext>,
+        _command: &str,
+        _arguments: &[String],
+    ) -> Result<()> {
+        ctx.term.clear_screen()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct CmdHistory {}
 
 impl CommandProcessor<AppContext> for CmdHistory {
@@ -369,7 +390,7 @@ impl CommandProcessor<AppContext> for CmdExit {
 pub struct CmdLs {}
 
 impl CommandProcessor<AppContext> for CmdLs {
-    command_processor_template!("ls");
+    command_processor_template!("l", "ls");
     command_processor_nohint!();
     command_processor_nohelp_args!();
 
@@ -470,7 +491,13 @@ impl CommandProcessor<AppContext> for CmdEncrypt {
         let file_path = raw_path.absolutize()?;
 
         if !file_path.is_file() {
-            return Err(Error::new(ErrorKind::FileNotFound, format!("Path '{}' is not a file", file_path.display())));
+            return Err(Error::new(
+                ErrorKind::FileNotFound,
+                format!(
+                    "Path '{}' is not a file",
+                    file_path.display()
+                ),
+            ));
         }
         let out_path = match arguments.get(1) {
             None => None,
@@ -509,7 +536,10 @@ impl CommandProcessor<AppContext> for CmdEncrypt {
         )?;
 
         if !ctx.data.keep_original {
-            log::info!("Original file '{}' will be removed", file_path.display());
+            log::info!(
+                "Original file '{}' will be removed",
+                file_path.display()
+            );
             remove_file(file_path.as_ref())?;
         }
         Ok(())
@@ -543,8 +573,26 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
 
         let preview = get_context_preview(ctx)?;
         if !file_path.is_file() {
-            return Err(Error::new(ErrorKind::FileNotFound, format!("Path '{}' is not a file", file_path.display())));
+            return Err(Error::new(
+                ErrorKind::FileNotFound,
+                format!(
+                    "Path '{}' is not a file",
+                    file_path.display()
+                ),
+            ));
         }
+
+        let file_type = try_detect_file_type(file_path.as_ref())?;
+        if file_type != DetectedFileType::Encrypted {
+            return Err(Error::new(
+                ErrorKind::EncryptedMetaDecodeError,
+                format!(
+                    "Path '{}' does not look like an encrypted file",
+                    file_path.display()
+                ),
+            ));
+        }
+
         try_decrypt(
             &file_path,
             match ctx.key_hash {
@@ -557,7 +605,10 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
             preview,
         )?;
         if !ctx.data.keep_original && !preview {
-            log::info!("Original file '{}' will be removed", file_path.display());
+            log::info!(
+                "Original file '{}' will be removed",
+                file_path.display()
+            );
             remove_file(file_path.as_ref())?;
         }
         Ok(())
@@ -567,7 +618,7 @@ impl CommandProcessor<AppContext> for CmdDecrypt {
 pub fn register_all_commands(
     cmd_context: &mut CommandProcessorContext<AppContext>,
 ) {
-    let commands: [Box<dyn CommandProcessor<AppContext>>; 15] = [
+    let commands: [Box<dyn CommandProcessor<AppContext>>; 16] = [
         Box::from(CmdSetKey::new()),
         Box::from(CmdUnsetKey::new()),
         Box::from(CmdSetPreview::new()),
@@ -580,6 +631,7 @@ pub fn register_all_commands(
         Box::from(CmdHistory::new()),
         Box::from(CmdLs::new()),
         Box::from(CmdCd::new()),
+        Box::from(CmdClear::new()),
         Box::from(CmdPwd::new()),
         Box::from(CmdHelp::new()),
         Box::from(CmdExit::new()),
