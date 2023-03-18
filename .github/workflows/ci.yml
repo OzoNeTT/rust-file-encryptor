@@ -217,7 +217,7 @@ jobs:
       - uses: actions/upload-artifact@master
         with:
           name: ${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}-${{ matrix.target }}
-          path: ./target/release/${{ steps.get_repository_name.outputs.REPOSITORY_NAME }}${{ matrix.suffix }}
+          path: ./target/release/file_encryptor${{ matrix.suffix }}
   release:
     if: github.ref == 'refs/heads/master'
     needs:
