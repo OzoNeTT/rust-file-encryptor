@@ -11,7 +11,7 @@ pub mod meta;
 use arrayref::array_ref;
 use std::convert::TryInto;
 use std::ffi::OsStr;
-use std::fs::File;
+use std::fs::{remove_file, File};
 use std::io::Write;
 use std::path::Path;
 use std::{fs, io, iter};
@@ -82,6 +82,14 @@ pub fn try_decrypt(
             &hash_from_key,
             &raw_meta.nonce,
         )?;
+
+        let real_target = file_path.with_file_name(&enc_meta.filename);
+        if real_target.exists() {
+            remove_file(target_file_path)?;
+            return Err(error::Error::new_file_already_exist(
+                real_target.to_str().unwrap_or(""),
+            ));
+        }
         if preview {
             println!("\n------------ [ end of the content ] ------------\n");
         }
@@ -108,9 +116,14 @@ pub fn try_decrypt(
 
 pub fn try_encrypt(
     file_path: &Path,
+    out_file_path: Option<&Path>,
     hash_from_key: [u8; 32],
 ) -> error::Result<()> {
-    let target_file_path = &file_path.with_extension("enc");
+    let fallback_target_file_path = file_path.with_extension("enc");
+    let target_file_path = match out_file_path {
+        None => fallback_target_file_path.as_path(),
+        Some(p) => p,
+    };
 
     println!("Target file path: {target_file_path:?}");
 

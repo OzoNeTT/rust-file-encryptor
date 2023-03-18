@@ -118,10 +118,10 @@ impl Cipher for ChaCha20 {
             glob_len += read_count;
             match self.size {
                 None => {
-                    log::info!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "Encrypting {:>6}", glob_len);
+                    log::debug!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "Encrypting {:>6}", glob_len);
                 }
                 Some(size) => {
-                    log::info!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "Encrypting {:>6}/{:>6}", glob_len, size,);
+                    log::debug!(target: "cipher/kind/chacha20 ChaCha20 encrypt", "Encrypting {:>6}/{:>6}", glob_len, size,);
                 }
             }
 
@@ -170,10 +170,10 @@ impl Cipher for ChaCha20 {
 
             match self.size {
                 None => {
-                    log::info!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Decrypting {:>6}", glob_len);
+                    log::debug!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Decrypting {:>6}", glob_len);
                 }
                 Some(size) => {
-                    log::info!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Decrypting {:>6}/{:>6}", glob_len, size,);
+                    log::debug!(target: "cipher/kind/chacha20 ChaCha20 decrypt", "Decrypting {:>6}/{:>6}", glob_len, size,);
                 }
             }
 

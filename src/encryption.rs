@@ -6,14 +6,22 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
-pub fn try_parse(source_file: &Path) -> error::Result<bool> {
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum DetectedFileType {
+    Raw,
+    Encrypted,
+}
+
+pub fn try_detect_file_type(
+    source_file: &Path,
+) -> error::Result<DetectedFileType> {
     let mut file = File::open(source_file)?;
     let file_len = file.metadata()?.len() as usize;
 
     log::debug!(target: "encryption try_parse", "File length: {file_len:?}");
     if file_len <= MetaHeader::size() {
         log::info!(target: "encryption try_parse", "File length is lower MetaHeader::size() = {:?}", MetaHeader::size());
-        return Ok(false);
+        return Ok(DetectedFileType::Raw);
     }
 
     let mut hdr_buff = vec![0u8; MetaHeader::size()];
@@ -24,11 +32,15 @@ pub fn try_parse(source_file: &Path) -> error::Result<bool> {
     match TryInto::<MetaHeader>::try_into(&hdr_buff).ok() {
         Some(meta) => {
             log::info!(target: "encryption try_parse", "File magic is valid");
-            Ok(meta.is_magic_valid())
+            Ok(if meta.is_magic_valid() {
+                DetectedFileType::Encrypted
+            } else {
+                DetectedFileType::Raw
+            })
         }
         None => {
             log::info!(target: "encryption try_parse", "File magic is invalid");
-            Ok(false)
+            Ok(DetectedFileType::Raw)
         }
     }
 }

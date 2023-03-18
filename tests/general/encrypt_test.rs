@@ -28,7 +28,11 @@ fn test_common() -> error::Result<()> {
 
     let raw_file = temp.child("to_enc.txt");
     let key_hash = file_encryptor::get_hash("amongus").expect("");
-    file_encryptor::try_encrypt((&raw_file).path(), key_hash.clone())?;
+    file_encryptor::try_encrypt(
+        (&raw_file).path(),
+        None,
+        key_hash.clone(),
+    )?;
 
     fs::remove_file(raw_file.path()).expect("");
 
@@ -76,7 +80,11 @@ fn test_common_large() -> error::Result<()> {
 
     let raw_file = temp.child("to_enc_large.txt");
     let key_hash = file_encryptor::get_hash("amongus").expect("");
-    file_encryptor::try_encrypt((&raw_file).path(), key_hash.clone())?;
+    file_encryptor::try_encrypt(
+        (&raw_file).path(),
+        None,
+        key_hash.clone(),
+    )?;
 
     fs::remove_file(raw_file.path()).expect("");
 
@@ -124,7 +132,11 @@ fn test_common_small() -> error::Result<()> {
 
     let raw_file = temp.child("to_enc_small.txt");
     let key_hash = file_encryptor::get_hash("amongus").expect("");
-    file_encryptor::try_encrypt((&raw_file).path(), key_hash.clone())?;
+    file_encryptor::try_encrypt(
+        (&raw_file).path(),
+        None,
+        key_hash.clone(),
+    )?;
 
     fs::remove_file(raw_file.path()).expect("");
 

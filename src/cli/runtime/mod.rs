@@ -16,10 +16,18 @@ pub enum ResultCode {
     Other(i32),
 }
 
+pub enum HintOption<T> {
+    None,
+    Line(T),
+    Exact(T, usize),
+}
+
 pub trait CommandProcessor<T>
 where
     T: Sized,
 {
+    fn get_args_help(&self) -> &'static str;
+
     fn get_command(&self) -> Vec<&'static str>;
     fn new() -> Self
     where
@@ -31,7 +39,8 @@ where
         command: &str,
         arguments: &[String],
     ) -> Result<()>;
-    fn get_hint(&self, ctx: &mut T, arguments: &[String]) -> Option<String>;
+    fn get_hint(&self, ctx: &mut T, arguments: &[String])
+        -> HintOption<String>;
 
     /// https://users.rust-lang.org/t/solved-is-it-possible-to-clone-a-boxed-trait-object/1714/6
     fn box_clone(&self) -> Box<dyn CommandProcessor<T>>;
@@ -125,11 +134,16 @@ impl<T> CommandProcessorContext<T> {
 
         loop {
             let key = term.read_key()?;
+            let (_, term_w) = {
+                let (h, w) = term.size();
+                (h as usize, w as usize)
+            };
             context.process_key(ctx, self, key)?;
             if context.is_last_hint_available() {
-                term.move_cursor_down(1)?;
+                let lines = (context.get_last_hint().len() + term_w) / term_w;
+                term.move_cursor_down(lines)?;
                 term.clear_line()?;
-                term.clear_last_lines(1)?;
+                term.clear_last_lines(lines)?;
             } else {
                 term.clear_line()?;
             }
@@ -140,34 +154,37 @@ impl<T> CommandProcessorContext<T> {
 
             if context.is_line_processed() {
                 if context.is_hint_available() {
-                    term.move_cursor_down(1)?;
+                    let lines = (context.get_hint().len() + term_w) / term_w;
+                    term.move_cursor_down(lines)?;
                     term.clear_line()?;
-                    term.move_cursor_up(1)?;
+                    term.move_cursor_up(lines)?;
                 }
                 break;
             }
 
             if context.is_hint_available() {
                 let hint = context.get_hint();
+                let lines = (hint.len() + term_w) / term_w;
+
                 term.write_fmt(format_args!("\n{}", hint))?;
                 term.move_cursor_left(hint.len())?;
-                term.move_cursor_up(1)?;
+                term.move_cursor_up(lines)?;
             }
             term.move_cursor_left(2 + context.result.len())?;
             term.move_cursor_right(2 + context.cursor_position)?;
         }
 
         term.write_line("")?;
-        let terimmed_string = context
+        let trimmed_string = context
             .result_to_string()
             .trim()
             .to_string();
-        if !terimmed_string.is_empty() {
+        if !trimmed_string.is_empty() {
             self.history
                 .push(context.result_to_string());
         }
 
-        match self.line_to_args(terimmed_string.as_str()) {
+        match self.line_to_args(trimmed_string.as_str()) {
             None => {
                 // Empty command is OK
                 Ok(true)

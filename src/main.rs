@@ -4,7 +4,7 @@ use file_encryptor::app::context::{
 use file_encryptor::cli::args::get_arguments;
 use file_encryptor::cli::runtime::command::register_all_commands;
 use file_encryptor::cli::runtime::CommandProcessorContext;
-use file_encryptor::encryption::try_parse;
+use file_encryptor::encryption::{try_detect_file_type, DetectedFileType};
 use file_encryptor::{error, get_hash, try_decrypt, try_encrypt};
 use path_absolutize::*;
 use rpassword::prompt_password;
@@ -21,7 +21,10 @@ use std::{env, io};
 /// - debug
 /// - trace
 fn init_logger() {
-    pretty_env_logger::init();
+    use log::LevelFilter;
+    pretty_env_logger::formatted_builder()
+        .filter_level(LevelFilter::Info)
+        .init();
 }
 
 fn cli_mode(
@@ -61,6 +64,12 @@ fn main() -> error::Result<()> {
     };
     register_all_commands(&mut cmd_context);
 
+    ctrlc::set_handler(move || {
+        // Do nothing
+    })
+    .map_err(|e| error::Error::new(error::ErrorKind::OtherError, e))?;
+    log::info!(target: "app_main", "Use `exit` command to exit, `help` to get help\n");
+
     if ctx.data.key.is_some() {
         ctx.key_hash = Some(get_hash(
             ctx.data.key.unwrap().as_str(),
@@ -83,38 +92,43 @@ fn main() -> error::Result<()> {
     log::debug!(target: "app_main", "File exists, ok");
 
     let mut preview: bool = false;
-    if try_parse(file_path.as_ref())? {
-        preview = get_context_preview(&ctx)?;
-        log::debug!(target: "app_main","Preview arg is: {:?}", preview);
+    match try_detect_file_type(file_path.as_ref())? {
+        DetectedFileType::Raw => {
+            println!("Raw file will be encrypted");
+            log::debug!(target: "app_main", "Key entered");
+            if ctx.key_hash.is_none() {
+                ctx.key_hash = Some(user_key_hash()?);
+            }
 
-        let key = match &ctx.data.key {
-            Some(key) => key.clone(),
-            None => prompt_password("Enter the key: ")?,
-        };
-
-        let hash_from_key = get_hash(&key)?;
-        log::debug!(target: "app_main", "Key entered");
-
-        println!("Encrypted file will be decrypted");
-        try_decrypt(
-            file_path.as_ref(),
-            hash_from_key,
-            preview,
-        )?;
-    } else {
-        println!("Raw file will be encrypted");
-        log::debug!(target: "app_main", "Key entered");
-        if ctx.key_hash.is_none() {
-            ctx.key_hash = Some(user_key_hash()?);
+            // to encrypt
+            try_encrypt(
+                file_path.as_ref(),
+                None,
+                ctx.key_hash.unwrap(),
+            )?;
         }
+        DetectedFileType::Encrypted => {
+            preview = get_context_preview(&ctx)?;
+            log::debug!(target: "app_main","Preview arg is: {:?}", preview);
 
-        // to encrypt
-        try_encrypt(
-            file_path.as_ref(),
-            ctx.key_hash.unwrap(),
-        )?;
-    }
+            let key = match &ctx.data.key {
+                Some(key) => key.clone(),
+                None => prompt_password("Enter the key: ")?,
+            };
 
+            let hash_from_key = get_hash(&key)?;
+            log::debug!(target: "app_main", "Key entered");
+
+            println!("Encrypted file will be decrypted");
+            try_decrypt(
+                file_path.as_ref(),
+                hash_from_key,
+                preview,
+            )?;
+        }
+    };
+
+    // TODO: encapsulate
     if !ctx.data.keep_original && !preview {
         remove_file(file_path.as_ref())?;
     }
